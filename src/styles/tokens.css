@@ -1,0 +1,306 @@
+/* ════════════════════════════════════════════════════════════════════
+   ASTRA tokens — VBDS v2.0 token architecture, ASTRA brand values.
+
+   Ported from ~/MyStuff/designsystem/src/tokens.css. The variable NAMES
+   are kept identical to VBDS so any component copied from the design
+   system drops in unchanged; only the VALUES are rebranded (VelPOS
+   orange -> ASTRA blue) and a desktop density tier is layered on top.
+
+   Three layers, in cascade order:
+     1. :root                    — brand + comfortable (tablet) scale = VBDS defaults
+     2. [data-density='compact'] — desktop enterprise density (the app default)
+     3. [data-theme='dark']      — dark surfaces
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Brand: ASTRA Blue ─────────────────────────────────────────── */
+  --vbds-primary: #2563eb;
+  --vbds-primary-hover: #1d4ed8;
+  --vbds-primary-active: #1e40af;
+  --vbds-primary-subtle: #eff6ff;
+  --vbds-primary-subtle-hover: #dbeafe;
+  --vbds-primary-border: #bfdbfe;
+  --vbds-on-primary: #ffffff;
+
+  /* ── Secondary: Teal · Accent: Indigo ──────────────────────────── */
+  --vbds-secondary: #14b8a6;
+  --vbds-secondary-hover: #0d9488;
+  --vbds-secondary-subtle: #f0fdfa;
+  --vbds-secondary-border: #99f6e4;
+  --vbds-accent: #6366f1;
+  --vbds-accent-subtle: #eef2ff;
+  --vbds-accent-border: #c7d2fe;
+
+  /* ── Neutrals (Slate) ──────────────────────────────────────────── */
+  --vbds-bg: #f8fafc;
+  --vbds-surface: #ffffff;
+  --vbds-surface-2: #f1f5f9;
+  --vbds-surface-3: #e2e8f0;
+  --vbds-text: #0f172a;
+  --vbds-text-secondary: #64748b;
+  --vbds-text-tertiary: #94a3b8;
+  --vbds-divider: #e2e8f0;
+  --vbds-border: #e2e8f0;
+  --vbds-border-strong: #cbd5e1;
+  --vbds-scrim: rgba(15, 23, 42, 0.44);
+
+  /* ── Glass (header / floating search) ──────────────────────────── */
+  --vbds-glass: rgba(255, 255, 255, 0.72);
+  --vbds-glass-border: rgba(226, 232, 240, 0.9);
+  --vbds-glass-blur: 14px;
+
+  /* ── Status ────────────────────────────────────────────────────── */
+  --vbds-success: #16a34a;
+  --vbds-success-subtle: #f0fdf4;
+  --vbds-success-border: #bbf7d0;
+  --vbds-warning: #d97706;
+  --vbds-warning-subtle: #fffbeb;
+  --vbds-warning-border: #fde68a;
+  --vbds-danger: #dc2626;
+  --vbds-danger-subtle: #fef2f2;
+  --vbds-danger-border: #fecaca;
+  --vbds-info: #2563eb;
+  --vbds-info-subtle: #eff6ff;
+  --vbds-info-border: #bfdbfe;
+
+  /* ── Domain category colors (chemical applications) ────────────── */
+  --vbds-cat-pharma: #2563eb;
+  --vbds-cat-pharma-subtle: #eff6ff;
+  --vbds-cat-agro: #16a34a;
+  --vbds-cat-agro-subtle: #f0fdf4;
+  --vbds-cat-polymer: #8b5cf6;
+  --vbds-cat-polymer-subtle: #f5f3ff;
+  --vbds-cat-specialty: #14b8a6;
+  --vbds-cat-specialty-subtle: #f0fdfa;
+  --vbds-cat-electronic: #0ea5e9;
+  --vbds-cat-electronic-subtle: #f0f9ff;
+  --vbds-cat-dye: #ec4899;
+  --vbds-cat-dye-subtle: #fdf2f8;
+
+  /* ── Categorical chart palette ─────────────────────────────────
+     Validated with the dataviz validator, light surface, adjacent
+     pairlist: lightness band PASS, chroma floor PASS, CVD separation
+     PASS (worst adjacent ΔE 9.1 protan), normal-vision floor PASS
+     (worst adjacent ΔE 19.6). Slots 3/4/5 fall below 3:1 contrast on
+     the light surface, so every chart using them ships visible value
+     labels plus a table view — see src/lib/chart-theme.ts.
+
+     Assign in fixed order, never cycled. All-pairs forms (donut,
+     scatter) are capped at 3 slots; past that, fold to "Other". ── */
+  --vbds-chart-1: #2563eb;
+  --vbds-chart-2: #eb6834;
+  --vbds-chart-3: #1baf7a;
+  --vbds-chart-4: #eda100;
+  --vbds-chart-5: #e87ba4;
+  --vbds-chart-6: #008300;
+  --vbds-chart-7: #4a3aa7;
+  --vbds-chart-8: #e34948;
+
+  /* Sequential ramp — one hue, light to dark, for magnitude bars. */
+  --vbds-seq-1: #dbeafe;
+  --vbds-seq-2: #bfdbfe;
+  --vbds-seq-3: #93c5fd;
+  --vbds-seq-4: #60a5fa;
+  --vbds-seq-5: #3b82f6;
+  --vbds-seq-6: #2563eb;
+  --vbds-seq-7: #1d4ed8;
+
+  --vbds-chart-grid: #e2e8f0;
+  --vbds-chart-axis: #94a3b8;
+
+  /* ── Typography (Inter) ────────────────────────────────────────── */
+  --vbds-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --vbds-font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  --vbds-display-size: 32px;
+  --vbds-display-line: 40px;
+  --vbds-display-weight: 700;
+  --vbds-headline-size: 24px;
+  --vbds-headline-line: 32px;
+  --vbds-headline-weight: 700;
+  --vbds-title-size: 18px;
+  --vbds-title-line: 26px;
+  --vbds-title-weight: 600;
+  --vbds-body-size: 15px;
+  --vbds-body-line: 22px;
+  --vbds-body-weight: 400;
+  --vbds-label-size: 13px;
+  --vbds-label-line: 18px;
+  --vbds-label-weight: 600;
+  --vbds-caption-size: 12px;
+  --vbds-caption-line: 16px;
+  --vbds-caption-weight: 500;
+
+  /* ── Radius ────────────────────────────────────────────────────── */
+  --vbds-radius-card: 24px;
+  --vbds-radius-button: 18px;
+  --vbds-radius-input: 16px;
+  --vbds-radius-sheet: 32px;
+  --vbds-radius-dialog: 24px;
+  --vbds-radius-fab: 28px;
+  --vbds-radius-sm: 12px;
+  --vbds-radius-xs: 8px;
+  --vbds-radius-full: 999px;
+
+  /* ── Spacing (8pt grid) ────────────────────────────────────────── */
+  --vbds-space-4: 4px;
+  --vbds-space-8: 8px;
+  --vbds-space-12: 12px;
+  --vbds-space-16: 16px;
+  --vbds-space-20: 20px;
+  --vbds-space-24: 24px;
+  --vbds-space-32: 32px;
+  --vbds-space-40: 40px;
+  --vbds-space-48: 48px;
+  --vbds-space-64: 64px;
+  --vbds-space-80: 80px;
+  --vbds-space-96: 96px;
+
+  /* ── Elevation (soft shadows only) ─────────────────────────────── */
+  --vbds-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --vbds-shadow-raised: 0 2px 4px rgba(15, 23, 42, 0.06), 0 12px 24px rgba(15, 23, 42, 0.1);
+  --vbds-shadow-overlay: 0 8px 16px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.16);
+  --vbds-shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.18);
+
+  /* ── Motion ────────────────────────────────────────────────────── */
+  --vbds-duration: 150ms;
+  --vbds-duration-slow: 260ms;
+  --vbds-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── Controls ──────────────────────────────────────────────────── */
+  --vbds-touch-target: 48px;
+  --vbds-control-height: 56px;
+
+  /* ── App shell geometry ────────────────────────────────────────── */
+  --astra-sidebar-width: 244px;
+  --astra-sidebar-collapsed: 68px;
+  --astra-topbar-height: 60px;
+  --astra-row-height: 44px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Density: compact — the desktop enterprise tier.
+
+   VBDS was authored for a 1280x800 tablet POS (56px controls, 24px
+   radii). Enterprise data tables need roughly 30% more rows per screen,
+   so this tier tightens control heights, radii and type while keeping
+   the 8pt spacing rhythm and every brand/status token untouched.
+   ════════════════════════════════════════════════════════════════════ */
+[data-density='compact'] {
+  --vbds-display-size: 28px;
+  --vbds-display-line: 36px;
+  --vbds-headline-size: 20px;
+  --vbds-headline-line: 28px;
+  --vbds-title-size: 15px;
+  --vbds-title-line: 22px;
+  --vbds-body-size: 14px;
+  --vbds-body-line: 20px;
+  --vbds-label-size: 12.5px;
+  --vbds-label-line: 18px;
+  --vbds-caption-size: 11.5px;
+  --vbds-caption-line: 16px;
+
+  --vbds-radius-card: 16px;
+  --vbds-radius-button: 10px;
+  --vbds-radius-input: 10px;
+  --vbds-radius-sheet: 20px;
+  --vbds-radius-dialog: 16px;
+  --vbds-radius-fab: 14px;
+  --vbds-radius-sm: 8px;
+  --vbds-radius-xs: 6px;
+
+  --vbds-touch-target: 34px;
+  --vbds-control-height: 38px;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────── */
+[data-theme='dark'] {
+  --vbds-primary: #3b82f6;
+  --vbds-primary-hover: #60a5fa;
+  --vbds-primary-active: #93c5fd;
+  --vbds-primary-subtle: #16233d;
+  --vbds-primary-subtle-hover: #1c2f52;
+  --vbds-primary-border: #24406e;
+
+  --vbds-secondary: #2dd4bf;
+  --vbds-secondary-subtle: #0d2b2a;
+  --vbds-secondary-border: #17544f;
+  --vbds-accent: #818cf8;
+  --vbds-accent-subtle: #1c1f3d;
+  --vbds-accent-border: #333a6b;
+
+  --vbds-bg: #0b0f17;
+  --vbds-surface: #131924;
+  --vbds-surface-2: #1b2230;
+  --vbds-surface-3: #252d3d;
+  --vbds-text: #f1f5f9;
+  --vbds-text-secondary: #94a3b8;
+  --vbds-text-tertiary: #64748b;
+  --vbds-divider: #232b3a;
+  --vbds-border: #232b3a;
+  --vbds-border-strong: #364154;
+  --vbds-scrim: rgba(2, 6, 16, 0.66);
+
+  --vbds-glass: rgba(19, 25, 36, 0.76);
+  --vbds-glass-border: rgba(35, 43, 58, 0.9);
+
+  --vbds-success: #4ade80;
+  --vbds-success-subtle: #0e2418;
+  --vbds-success-border: #1c4a30;
+  --vbds-warning: #fbbf24;
+  --vbds-warning-subtle: #2a1f0c;
+  --vbds-warning-border: #543f14;
+  --vbds-danger: #f87171;
+  --vbds-danger-subtle: #2a1315;
+  --vbds-danger-border: #562226;
+  --vbds-info: #60a5fa;
+  --vbds-info-subtle: #16233d;
+  --vbds-info-border: #24406e;
+
+  --vbds-cat-pharma: #60a5fa;
+  --vbds-cat-pharma-subtle: #16233d;
+  --vbds-cat-agro: #4ade80;
+  --vbds-cat-agro-subtle: #0e2418;
+  --vbds-cat-polymer: #a78bfa;
+  --vbds-cat-polymer-subtle: #211a3a;
+  --vbds-cat-specialty: #2dd4bf;
+  --vbds-cat-specialty-subtle: #0d2b2a;
+  --vbds-cat-electronic: #38bdf8;
+  --vbds-cat-electronic-subtle: #0c2434;
+  --vbds-cat-dye: #f472b6;
+  --vbds-cat-dye-subtle: #2e1424;
+
+  /* Dark chart steps are selected for the dark band (OKLCH L 0.48–0.67),
+     not an automatic flip. Validated against surface #131924, adjacent
+     pairlist: all five checks PASS, including contrast ≥ 3:1. */
+  --vbds-chart-1: #3b82f6;
+  --vbds-chart-2: #d95926;
+  --vbds-chart-3: #199e70;
+  --vbds-chart-4: #c98500;
+  --vbds-chart-5: #d55181;
+  --vbds-chart-6: #008300;
+  --vbds-chart-7: #9085e9;
+  --vbds-chart-8: #e66767;
+
+  --vbds-seq-1: #172554;
+  --vbds-seq-2: #1e3a8a;
+  --vbds-seq-3: #1e40af;
+  --vbds-seq-4: #1d4ed8;
+  --vbds-seq-5: #2563eb;
+  --vbds-seq-6: #3b82f6;
+  --vbds-seq-7: #60a5fa;
+
+  --vbds-chart-grid: #232b3a;
+  --vbds-chart-axis: #64748b;
+
+  --vbds-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.32);
+  --vbds-shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 24px rgba(0, 0, 0, 0.4);
+  --vbds-shadow-overlay: 0 8px 16px rgba(0, 0, 0, 0.44), 0 24px 48px rgba(0, 0, 0, 0.5);
+  --vbds-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --vbds-duration: 1ms;
+    --vbds-duration-slow: 1ms;
+  }
+}

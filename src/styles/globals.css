@@ -1,0 +1,215 @@
+@import 'tailwindcss';
+
+@import './tokens.css';
+@import './vbds/base.css';
+@import './vbds/actions.css';
+@import './vbds/inputs.css';
+@import './vbds/display.css';
+@import './vbds/navigation.css';
+@import './vbds/feedback.css';
+@import './astra.css';
+
+@source '../';
+
+/* ════════════════════════════════════════════════════════════════════
+   Tailwind bridge — every utility resolves to a VBDS token, so Tailwind
+   classes and design system components stay in lockstep across themes.
+   Using `inline` so the utilities emit var() references rather than
+   snapshotting values (required for runtime light/dark switching).
+   ════════════════════════════════════════════════════════════════════ */
+@theme inline {
+  --color-primary: var(--vbds-primary);
+  --color-primary-hover: var(--vbds-primary-hover);
+  --color-primary-subtle: var(--vbds-primary-subtle);
+  --color-primary-border: var(--vbds-primary-border);
+  --color-on-primary: var(--vbds-on-primary);
+  --color-secondary: var(--vbds-secondary);
+  --color-secondary-subtle: var(--vbds-secondary-subtle);
+  --color-accent: var(--vbds-accent);
+  --color-accent-subtle: var(--vbds-accent-subtle);
+
+  --color-bg: var(--vbds-bg);
+  --color-surface: var(--vbds-surface);
+  --color-surface-2: var(--vbds-surface-2);
+  --color-surface-3: var(--vbds-surface-3);
+  --color-fg: var(--vbds-text);
+  --color-fg-secondary: var(--vbds-text-secondary);
+  --color-fg-tertiary: var(--vbds-text-tertiary);
+  --color-line: var(--vbds-border);
+  --color-line-strong: var(--vbds-border-strong);
+
+  --color-success: var(--vbds-success);
+  --color-success-subtle: var(--vbds-success-subtle);
+  --color-warning: var(--vbds-warning);
+  --color-warning-subtle: var(--vbds-warning-subtle);
+  --color-danger: var(--vbds-danger);
+  --color-danger-subtle: var(--vbds-danger-subtle);
+  --color-info: var(--vbds-info);
+  --color-info-subtle: var(--vbds-info-subtle);
+
+  --radius-xs: var(--vbds-radius-xs);
+  --radius-sm: var(--vbds-radius-sm);
+  --radius-input: var(--vbds-radius-input);
+  --radius-button: var(--vbds-radius-button);
+  --radius-card: var(--vbds-radius-card);
+  --radius-dialog: var(--vbds-radius-dialog);
+  --radius-full: var(--vbds-radius-full);
+
+  --shadow-card: var(--vbds-shadow-card);
+  --shadow-raised: var(--vbds-shadow-raised);
+  --shadow-overlay: var(--vbds-shadow-overlay);
+
+  --font-sans: var(--vbds-font);
+  --font-mono: var(--vbds-font-mono);
+
+  --text-display: var(--vbds-display-size);
+  --text-headline: var(--vbds-headline-size);
+  --text-title: var(--vbds-title-size);
+  --text-body: var(--vbds-body-size);
+  --text-label: var(--vbds-label-size);
+  --text-caption: var(--vbds-caption-size);
+
+  --spacing-4: var(--vbds-space-4);
+  --spacing-8: var(--vbds-space-8);
+  --spacing-12: var(--vbds-space-12);
+  --spacing-16: var(--vbds-space-16);
+  --spacing-20: var(--vbds-space-20);
+  --spacing-24: var(--vbds-space-24);
+  --spacing-32: var(--vbds-space-32);
+  --spacing-40: var(--vbds-space-40);
+  --spacing-48: var(--vbds-space-48);
+
+  --ease-vbds: var(--vbds-ease);
+}
+
+/* ── Global reset / page defaults ───────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--vbds-bg);
+  color: var(--vbds-text);
+  font-family: var(--vbds-font);
+  font-size: var(--vbds-body-size);
+  line-height: var(--vbds-body-line);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure,
+dl,
+dd {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--vbds-primary);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--vbds-primary) 22%, transparent);
+}
+
+/* Scrollbars — subtle, theme-aware */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vbds-border-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vbds-border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vbds-text-tertiary);
+  background-clip: content-box;
+}
+
+/* Prevent theme flash and layout shift under the fixed shell */
+html[data-theme] {
+  color-scheme: light;
+}
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@media print {
+  .astra-sidebar,
+  .astra-topbar,
+  .astra-page__actions {
+    display: none !important;
+  }
+  .astra-shell {
+    grid-template-columns: 1fr;
+  }
+  .astra-table-scroll {
+    max-height: none;
+    overflow: visible;
+  }
+}

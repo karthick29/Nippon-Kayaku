@@ -1,0 +1,48 @@
+/* Shared base for all VBDS components. Components are self-contained BEM
+   blocks — no global resets are applied outside vbds-* class scopes.
+   Ported verbatim from designsystem/src/styles/base.css. */
+[class^='vbds-'],
+[class^='vbds-'] *,
+[class*=' vbds-'],
+[class*=' vbds-'] * {
+  box-sizing: border-box;
+}
+
+[class^='vbds-'],
+[class*=' vbds-'] {
+  font-family: var(--vbds-font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@keyframes vbds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vbds-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes vbds-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes vbds-slide-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+@keyframes vbds-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}

@@ -1,0 +1,413 @@
+// ════════════════════════════════════════════════════════════════════
+//  ASTRA — normalised PostgreSQL schema
+//
+//  Conventions
+//    · snake_case table and column names via @map / @@map
+//    · cuid() primary keys
+//    · soft delete via deleted_at (never hard-delete business records)
+//    · every foreign key is explicit, with an intentional onDelete rule
+//    · @@index on every column used for filtering, sorting or joining
+//
+//  Generate + apply:
+//    npm run db:generate && npm run db:push && npm run db:seed
+// ════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Identity & access
+// ─────────────────────────────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique // ADMIN | MANAGER | ANALYST | VIEWER
+  name        String
+  description String?
+  /// Higher rank wins when comparing roles.
+  rank        Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  /// Dot-scoped capability, e.g. "product:delete".
+  key         String   @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  roles RolePermission[]
+
+  @@index([resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  /// Argon2id hash. Null while an SSO-only account has never set one.
+  passwordHash String?   @map("password_hash")
+  title        String?
+  roleId       String    @map("role_id")
+  active       Boolean   @default(true)
+  lastActiveAt DateTime? @map("last_active_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  role          Role            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  auditLogs     AuditLog[]
+  activityLogs  ActivityLog[]
+  documents     Document[]
+  savedSearches SavedSearch[]
+
+  @@index([roleId])
+  @@index([active])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Master data
+// ─────────────────────────────────────────────────────────────────────
+
+model Application {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  /// Domain colour key driving badges and chart series.
+  colorKey    String    @map("color_key")
+  sortOrder   Int       @default(0) @map("sort_order")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  products Product[]
+
+  @@index([active, sortOrder])
+  @@map("applications")
+}
+
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  products Product[]
+
+  @@index([active, sortOrder])
+  @@map("product_categories")
+}
+
+model CompanyLocation {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  state     String
+  country   String    @default("India")
+  region    String?
+  sortOrder Int       @default(0) @map("sort_order")
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  companies Company[]
+
+  @@index([active, sortOrder])
+  @@map("company_locations")
+}
+
+model EquipmentMaster {
+  id        String   @id @default(cuid())
+  /// Stable programmatic key, e.g. "flowChemistry".
+  key       String   @unique
+  name      String
+  /// Reaction | Isolation | Analytical | Scale-up | Infrastructure
+  group     String
+  /// count | spec | boolean — how the value should be read.
+  valueType String   @map("value_type")
+  unit      String?
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  companyEquipment CompanyEquipment[]
+
+  @@index([group, sortOrder])
+  @@map("equipment_master")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Core entities
+// ─────────────────────────────────────────────────────────────────────
+
+enum ProductStatus {
+  COMMERCIAL
+  DEVELOPMENT
+  PILOT
+  DISCONTINUED
+
+  @@map("product_status")
+}
+
+model Product {
+  id                String        @id @default(cuid())
+  name              String
+  slug              String        @unique
+  /// CAS Registry Number, stored canonically as 000000-00-0.
+  casNumber         String        @map("cas_number")
+  molecularFormula  String?       @map("molecular_formula")
+  molecularWeight   Decimal?      @map("molecular_weight") @db.Decimal(10, 4)
+  applicationId     String        @map("application_id")
+  categoryId        String        @map("category_id")
+  status            ProductStatus @default(DEVELOPMENT)
+  description       String?
+  /// Trade names and synonyms — included in the search index.
+  synonyms          String[]      @default([])
+  createdById       String?       @map("created_by_id")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  deletedAt         DateTime?     @map("deleted_at")
+
+  application Application     @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  category    ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  companies   ProductCompany[]
+  documents   Document[]
+  versions    ProductVersion[]
+
+  @@unique([casNumber, deletedAt], name: "unique_active_cas")
+  @@index([applicationId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([casNumber])
+  @@index([deletedAt])
+  @@index([createdAt])
+  @@map("products")
+}
+
+/// Append-only version history powering the product History tab.
+model ProductVersion {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  version   Int
+  /// Full snapshot of the product row at this version.
+  snapshot  Json
+  changedBy String?  @map("changed_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, version])
+  @@index([productId])
+  @@map("product_versions")
+}
+
+model Company {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  locationId    String    @map("location_id")
+  chemicalStaff Int       @default(0) @map("chemical_staff")
+  phdCount      Int       @default(0) @map("phd_count")
+  established   Int
+  capital       String?
+  strength      String?
+  presentation  String?
+  remarks       String?
+  website       String?
+  contactEmail  String?   @map("contact_email")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  location  CompanyLocation    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  equipment CompanyEquipment[]
+  products  ProductCompany[]
+  documents Document[]
+
+  @@index([locationId])
+  @@index([deletedAt])
+  @@index([established])
+  @@index([chemicalStaff])
+  @@map("companies")
+}
+
+model CompanyEquipment {
+  id            String   @id @default(cuid())
+  companyId     String   @map("company_id")
+  equipmentId   String   @map("equipment_id")
+  available     Boolean  @default(false)
+  /// Populated when the master row's valueType is "count".
+  count         Int?
+  /// Populated when the master row's valueType is "spec".
+  specification String?
+  capacity      String?
+  remarks       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  equipment EquipmentMaster @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, equipmentId])
+  @@index([equipmentId, available])
+  @@index([companyId])
+  @@map("company_equipment")
+}
+
+/// Join table: which companies can supply which products.
+model ProductCompany {
+  id           String        @id @default(cuid())
+  productId    String        @map("product_id")
+  companyId    String        @map("company_id")
+  /// Supplier-internal codes, e.g. {PR-001,PR-004}.
+  productCodes String[]      @default([]) @map("product_codes")
+  strength     String?
+  presentation String?
+  capital      String?
+  remarks      String?
+  status       ProductStatus @default(DEVELOPMENT)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, companyId])
+  @@index([companyId])
+  @@index([productId])
+  @@index([status])
+  @@map("product_company")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Documents, audit, activity
+// ─────────────────────────────────────────────────────────────────────
+
+model Document {
+  id           String   @id @default(cuid())
+  productId    String?  @map("product_id")
+  companyId    String?  @map("company_id")
+  name         String
+  /// COA | MSDS | Spec Sheet | Audit Report | NDA | Process Flow
+  kind         String
+  storageKey   String?  @map("storage_key")
+  sizeKb       Int      @default(0) @map("size_kb")
+  version      Int      @default(1)
+  uploadedById String?  @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  product    Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  company    Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([companyId])
+  @@index([kind])
+  @@map("documents")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  EXPORT
+  LOGIN
+
+  @@map("audit_action")
+}
+
+/// Immutable trail of every data change. Never updated, never deleted.
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      AuditAction
+  entity      String
+  entityId    String      @map("entity_id")
+  entityLabel String      @map("entity_label")
+  actorId     String?     @map("actor_id")
+  actorName   String      @map("actor_name")
+  summary     String
+  /// { field: { from, to } } diff of the change.
+  changes     Json?
+  ipAddress   String?     @map("ip_address")
+  userAgent   String?     @map("user_agent")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+/// Lighter-weight usage feed: views, searches, exports. Prunable.
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  /// VIEW | SEARCH | EXPORT | FILTER
+  kind      String
+  target    String?
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([kind])
+  @@map("activity_logs")
+}
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  name      String
+  query     String
+  filters   Json
+  ownerId   String   @map("owner_id")
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("saved_searches")
+}
