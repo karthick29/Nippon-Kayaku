@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+      "build:external": "npm run build && rm -rf ../output && cp -R .next ../output"
+    ,
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

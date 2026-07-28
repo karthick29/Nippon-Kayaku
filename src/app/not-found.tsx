@@ -12,7 +12,7 @@ export default function RootNotFound() {
           Page not found
         </h1>
         <p style={{ color: 'var(--vbds-text-secondary)', marginBottom: 24 }}>
-          That address doesn&apos;t match anything in ASTRA.
+          That address doesn&apos;t match anything in nipponkayaku.
         </p>
         <Link href="/dashboard" className="vbds-button vbds-button--primary vbds-button--full">
           Go to dashboard

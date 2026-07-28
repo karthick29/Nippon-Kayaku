@@ -86,7 +86,7 @@ export default async function CompanyProfilePage({
       <PageHeader
         title=""
         crumbs={[
-          { label: 'ASTRA', href: '/dashboard' },
+          { label: 'nipponkayaku', href: '/dashboard' },
           { label: 'Companies', href: '/companies' },
           { label: company.name },
         ]}

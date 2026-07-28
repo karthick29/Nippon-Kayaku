@@ -84,7 +84,7 @@ export function Sidebar({
         <LogoMark />
         {!collapsed && (
           <span style={{ minWidth: 0 }}>
-            <span className="astra-sidebar__wordmark">ASTRA</span>
+            <span className="astra-sidebar__wordmark">nipponkayaku</span>
             <span className="astra-sidebar__tagline" style={{ display: 'block' }}>
               Chemical Intelligence
             </span>

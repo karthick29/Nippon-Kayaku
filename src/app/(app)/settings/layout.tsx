@@ -11,7 +11,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       <PageHeader
         title="Settings"
         subtitle="Preferences, people, permissions, master data and the audit trail."
-        crumbs={[{ label: 'ASTRA', href: '/dashboard' }, { label: 'Settings' }]}
+        crumbs={[{ label: 'nipponkayaku', href: '/dashboard' }, { label: 'Settings' }]}
       />
 
       <div className="astra-settings">

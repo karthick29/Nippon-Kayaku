@@ -80,7 +80,7 @@ export default async function ProductDetailPage({
       <PageHeader
         title=""
         crumbs={[
-          { label: 'ASTRA', href: '/dashboard' },
+          { label: 'nipponkayaku', href: '/dashboard' },
           { label: 'Products', href: '/products' },
           { label: product.name },
         ]}

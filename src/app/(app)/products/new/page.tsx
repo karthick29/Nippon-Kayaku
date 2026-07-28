@@ -24,7 +24,7 @@ export default async function NewProductPage() {
         title="Add Product"
         subtitle="Three steps: identify the chemical, map its suppliers, review and submit."
         crumbs={[
-          { label: 'ASTRA', href: '/dashboard' },
+          { label: 'nipponkayaku', href: '/dashboard' },
           { label: 'Products', href: '/products' },
           { label: 'Add Product' },
         ]}

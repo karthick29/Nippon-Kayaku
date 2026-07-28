@@ -20,7 +20,7 @@ export default async function AnalyticsPage() {
       <PageHeader
         title="Analytics"
         subtitle="Portfolio shape, supplier footprint and capability depth across the whole catalogue."
-        crumbs={[{ label: 'ASTRA', href: '/dashboard' }, { label: 'Analytics' }]}
+        crumbs={[{ label: 'nipponkayaku', href: '/dashboard' }, { label: 'Analytics' }]}
       />
 
       <Suspense fallback={<StatGridSkeleton count={6} />}>

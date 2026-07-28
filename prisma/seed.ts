@@ -264,7 +264,7 @@ async function main() {
       actorId: userBySeedId.get(a.actorId) ?? null,
       actorName: a.actorName,
       summary: a.summary,
-      changes: a.changes ?? undefined,
+      changes: a.changes ? JSON.parse(JSON.stringify(a.changes)) : undefined,
       createdAt: new Date(a.createdAt),
     })),
   });

@@ -24,7 +24,7 @@ export default async function ReportsPage() {
       <PageHeader
         title="Reports"
         subtitle="Pick a report, check the preview, export as CSV, Excel or PDF."
-        crumbs={[{ label: 'ASTRA', href: '/dashboard' }, { label: 'Reports' }]}
+        crumbs={[{ label: 'nipponkayaku', href: '/dashboard' }, { label: 'Reports' }]}
       />
 
       <ReportBuilder products={products.rows} companies={companies.rows} equipment={EQUIPMENT_MASTER} />

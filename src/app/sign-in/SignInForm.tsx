@@ -27,7 +27,7 @@ export function SignInForm({ accounts }: { accounts: DemoAccount[] }) {
           <LogoMark size={40} />
           <div>
             <div style={{ fontSize: 'var(--vbds-headline-size)', fontWeight: 700, letterSpacing: '0.04em' }}>
-              ASTRA
+              nipponkayaku
             </div>
             <div
               style={{

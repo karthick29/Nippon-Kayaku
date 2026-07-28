@@ -30,7 +30,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
       <PageHeader
         title="Products"
         subtitle="Every chemical in the catalogue, with the companies that can supply it."
-        crumbs={[{ label: 'ASTRA', href: '/dashboard' }, { label: 'Products' }]}
+        crumbs={[{ label: 'nipponkayaku', href: '/dashboard' }, { label: 'Products' }]}
         actions={
           can(session?.user.role, 'product:create') ? (
             <Button href="/products/new" icon={<Plus size={14} />}>

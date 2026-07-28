@@ -22,3 +22,4 @@ coverage/
 
 # Generated Prisma client
 /prisma/generated/
+output/

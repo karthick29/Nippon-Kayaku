@@ -9,12 +9,12 @@ import { THEME_INIT_SCRIPT } from '@/components/shell/ThemeProvider';
 
 export const metadata: Metadata = {
   title: {
-    default: 'ASTRA — Chemical Intelligence Platform',
-    template: '%s · ASTRA',
+    default: 'nipponkayaku — Chemical Intelligence Platform',
+    template: '%s · nipponkayaku',
   },
   description:
-    'ASTRA is the Nippon Kayaku chemical intelligence platform — search chemicals by name, CAS or capability, and manage products, suppliers and manufacturing capacity in one place.',
-  applicationName: 'ASTRA',
+    'nipponkayaku is the Nippon Kayaku chemical intelligence platform — search chemicals by name, CAS or capability, and manage products, suppliers and manufacturing capacity in one place.',
+  applicationName: 'nipponkayaku',
   robots: { index: false, follow: false }, // internal platform
 };
 

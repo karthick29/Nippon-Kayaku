@@ -29,7 +29,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
       <PageHeader
         title="Companies"
         subtitle="Manufacturing partners, their people and their capability."
-        crumbs={[{ label: 'ASTRA', href: '/dashboard' }, { label: 'Companies' }]}
+        crumbs={[{ label: 'nipponkayaku', href: '/dashboard' }, { label: 'Companies' }]}
       />
 
       <Suspense fallback={<TableSkeleton rows={10} cols={8} />}>

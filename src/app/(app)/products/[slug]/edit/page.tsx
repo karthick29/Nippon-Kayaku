@@ -25,7 +25,7 @@ export default async function EditProductPage({ params }: { params: Params }) {
         title={`Edit ${product.name}`}
         subtitle="Changes are recorded in the product's history with a field-level diff."
         crumbs={[
-          { label: 'ASTRA', href: '/dashboard' },
+          { label: 'nipponkayaku', href: '/dashboard' },
           { label: 'Products', href: '/products' },
           { label: product.name, href: `/products/${product.slug}` },
           { label: 'Edit' },
