@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { PRODUCT_STATUSES } from './types';
-import type { EquipmentKey, ProductQuery, CompanyQuery } from './types';
+import { PRODUCT_STATUSES, STRUCTURE_SEARCH_MODES } from './types';
+import type { EquipmentKey, ProductQuery, CompanyQuery, StructureQuery, StructureSearchMode } from './types';
 
 /* ════════════════════════════════════════════════════════════════════
    Zod schemas — the single validation source for React Hook Form on the
@@ -189,6 +189,40 @@ export function parseProductQuery(params: URLSearchParams): ProductQuery {
     page: int(params, 'page', 1),
     pageSize: Math.min(200, int(params, 'pageSize', 25) ?? 25),
   };
+}
+
+/* ── Structure search ───────────────────────────────────────────── */
+
+export const structureQuerySchema = z.object({
+  mode: z.enum(STRUCTURE_SEARCH_MODES as [StructureSearchMode, ...StructureSearchMode[]]),
+  query: z
+    .string()
+    .trim()
+    .min(1, 'Enter a structure to search for')
+    .max(MAX_STRUCTURE_LENGTH, `Structure queries must be ${MAX_STRUCTURE_LENGTH} characters or fewer`),
+  threshold: z.coerce.number().min(0.1).max(1).default(0.5),
+  limit: z.coerce.number().int().min(1).max(200).default(60),
+});
+
+/**
+ * Reads a structure search from a query string: `mode` + `q` (+ `threshold`),
+ * plus the same facet filters as text search. Returns null for a text
+ * search or an empty query — callers fall back to `parseProductQuery`.
+ * Throws ZodError for a malformed structure query (→ 422).
+ */
+export function parseStructureQuery(params: URLSearchParams): StructureQuery | null {
+  const mode = params.get('mode');
+  const q = params.get('q')?.trim();
+  if (!mode || mode === 'text' || !q) return null;
+
+  const parsed = structureQuerySchema.parse({
+    mode,
+    query: q,
+    threshold: params.get('threshold') ?? undefined,
+    limit: params.get('limit') ?? undefined,
+  });
+  const { status, applicationId, categoryId, companyId, locationId, equipment } = parseProductQuery(params);
+  return { ...parsed, filters: { status, applicationId, categoryId, companyId, locationId, equipment } };
 }
 
 /** Parses a company list query string into a typed, bounded query. */

@@ -1,8 +1,8 @@
 'use client';
 
-import { LayoutGrid, List, SlidersHorizontal, X } from 'lucide-react';
+import { Equal, Hexagon, LayoutGrid, List, Shapes, SlidersHorizontal, TextSearch, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { Application, EquipmentMaster, Location, ProductCategory, ProductStatus } from '@/lib/types';
 import { Badge, Button, Chip, SearchField, SegmentedControl, Select } from '@/components/vbds';
 import { useRecentSearches } from '@/components/shell/useRecentSearches';
@@ -23,6 +23,47 @@ export interface SearchFacets {
   equipment: EquipmentMaster[];
   statuses: ProductStatus[];
 }
+
+type SearchMode = 'text' | 'substructure' | 'similarity' | 'exact';
+
+const MODES: Array<{ value: SearchMode; label: string; icon: ReactNode }> = [
+  { value: 'text', label: 'Text', icon: <TextSearch size={13} /> },
+  { value: 'substructure', label: 'Substructure', icon: <Hexagon size={13} /> },
+  { value: 'similarity', label: 'Similarity', icon: <Shapes size={13} /> },
+  { value: 'exact', label: 'Exact structure', icon: <Equal size={13} /> },
+];
+
+const PLACEHOLDERS: Record<SearchMode, string> = {
+  text: 'Search by product name, CAS number, synonym, formula, company or application…',
+  substructure: 'Fragment as SMILES or SMARTS, e.g. C1CO1 for an epoxide…',
+  similarity: 'Structure as SMILES — finds similar molecules…',
+  exact: 'Structure as SMILES — finds the same compound, and stereoisomers…',
+};
+
+/** Example queries per structure mode — each is a real hit in the seed catalogue. */
+const STRUCTURE_EXAMPLES: Record<Exclude<SearchMode, 'text'>, Array<{ label: string; query: string }>> = {
+  substructure: [
+    { label: 'Epoxide', query: 'C1CO1' },
+    { label: 'Benzaldehyde', query: 'O=Cc1ccccc1' },
+    { label: 'Pyridine', query: 'c1ccncc1' },
+    { label: 'Imidazole', query: 'c1cnc[nH]1' },
+    { label: 'Acyl chloride (SMARTS)', query: '[CX3](=O)Cl' },
+  ],
+  similarity: [
+    { label: 'Vanillin', query: 'COc1cc(C=O)ccc1O' },
+    { label: '2-Methylimidazole', query: 'Cc1ncc[nH]1' },
+    { label: 'Chlorpyrifos', query: 'CCOP(=S)(OCC)Oc1nc(Cl)c(Cl)cc1Cl' },
+  ],
+  exact: [
+    { label: 'Epichlorohydrin (racemic)', query: 'ClCC1CO1' },
+    { label: 'Morpholine', query: 'C1COCCN1' },
+  ],
+};
+
+const THRESHOLDS = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8'].map((v) => ({
+  value: v,
+  label: `≥ ${Math.round(Number(v) * 100)}% similar`,
+}));
 
 const SORTS = [
   { value: 'relevance', label: 'Best match' },
@@ -47,6 +88,8 @@ export function SearchControls({
   const [pending, startTransition] = useTransition();
   const { recents, addRecent } = useRecentSearches();
 
+  const mode: SearchMode = MODES.some((m) => m.value === params.get('mode')) ? (params.get('mode') as SearchMode) : 'text';
+  const isStructure = mode !== 'text';
   const [draft, setDraft] = useState(params.get('q') ?? '');
   const [showFilters, setShowFilters] = useState(false);
   const committed = useRef(params.get('q') ?? '');
@@ -78,16 +121,34 @@ export function SearchControls({
   // Debounced commit of the search box.
   useEffect(() => {
     if (draft === committed.current) return;
+    // Structures debounce longer: a half-typed SMILES is usually invalid, and
+    // a 422 flashing on every keystroke is noise.
     const timer = setTimeout(() => {
       committed.current = draft;
-      if (draft.trim().length >= 2) addRecent(draft);
+      if (!isStructure && draft.trim().length >= 2) addRecent(draft);
       push((next) => {
         if (draft.trim()) next.set('q', draft.trim());
         else next.delete('q');
       }, true);
-    }, 200);
+    }, isStructure ? 600 : 200);
     return () => clearTimeout(timer);
-  }, [draft, push, addRecent]);
+  }, [draft, push, addRecent, isStructure]);
+
+  /** Text ↔ structure clears the query (a name isn't a SMILES); between structure modes it's kept. */
+  function setMode(next: SearchMode) {
+    const crossing = (next === 'text') !== isStructure;
+    if (crossing) {
+      setDraft('');
+      committed.current = '';
+    }
+    push((p) => {
+      if (next === 'text') p.delete('mode');
+      else p.set('mode', next);
+      if (crossing) p.delete('q');
+      if (next !== 'similarity') p.delete('threshold');
+      if (next !== 'text') p.delete('sort');
+    });
+  }
 
   const activeValues = useCallback((key: string) => params.getAll(key).flatMap((v) => v.split(',')).filter(Boolean), [params]);
 
@@ -119,22 +180,47 @@ export function SearchControls({
   function clearAll() {
     setDraft('');
     committed.current = '';
-    startTransition(() => router.push(pathname, { scroll: false }));
+    startTransition(() => router.push(isStructure ? `${pathname}?mode=${mode}` : pathname, { scroll: false }));
   }
 
   return (
     <div className="astra-search-panel">
+      <div className="astra-search-panel__modes">
+        <SegmentedControl ariaLabel="Search mode" value={mode} onValueChange={(v) => setMode(v as SearchMode)} items={MODES} />
+      </div>
       <SearchField
         hero
         fullWidth
         value={draft}
         onValueChange={setDraft}
-        placeholder="Search by product name, CAS number, synonym, formula, company or application…"
-        aria-label="Search chemicals"
+        placeholder={PLACEHOLDERS[mode]}
+        aria-label={isStructure ? 'Structure query (SMILES or SMARTS)' : 'Search chemicals'}
+        spellCheck={!isStructure}
+        autoCapitalize="off"
+        className={isStructure ? 'astra-search-panel__field--structure' : undefined}
         trailing={pending ? <span className="vbds-spinner vbds-spinner--sm" aria-label="Searching" /> : undefined}
       />
 
-      {!hasQuery && popular.length > 0 && (
+      {isStructure && (
+        <p className="astra-search-panel__structure-hint">
+          {mode === 'substructure'
+            ? 'Matches any product containing the fragment. A SMILES fragment doesn’t fix hydrogen counts, so O=Cc1ccccc1 also finds aryl ketones — use SMARTS such as [CH1](=O)c for aldehydes only.'
+            : mode === 'similarity'
+              ? 'Ranks products by Tanimoto similarity of Morgan fingerprints (radius 2).'
+              : 'Identical InChIKey is an exact match; same skeleton with different stereochemistry or isotopes is listed as same connectivity.'}
+        </p>
+      )}
+
+      {isStructure && !hasQuery && (
+        <div className="astra-search-panel__row">
+          <span className="astra-search-panel__hint">Try</span>
+          {STRUCTURE_EXAMPLES[mode].map((example) => (
+            <Chip key={example.query} label={example.label} onClick={() => setDraft(example.query)} />
+          ))}
+        </div>
+      )}
+
+      {!isStructure && !hasQuery && popular.length > 0 && (
         <div className="astra-search-panel__row">
           <span className="astra-search-panel__hint">Popular chemicals</span>
           {popular.map((term) => (
@@ -143,7 +229,7 @@ export function SearchControls({
         </div>
       )}
 
-      {!hasQuery && recents.length > 0 && (
+      {!isStructure && !hasQuery && recents.length > 0 && (
         <div className="astra-search-panel__row">
           <span className="astra-search-panel__hint">Recent</span>
           {recents.slice(0, 5).map((term) => (
@@ -180,13 +266,25 @@ export function SearchControls({
 
         <div style={{ flex: 1 }} />
 
-        <Select
-          options={SORTS}
-          value={sort}
-          onChange={(e) => push((p) => p.set('sort', e.target.value))}
-          aria-label="Sort results"
-          className="astra-search-panel__sort"
-        />
+        {mode === 'similarity' && (
+          <Select
+            options={THRESHOLDS}
+            value={params.get('threshold') ?? '0.5'}
+            onChange={(e) => push((p) => p.set('threshold', e.target.value))}
+            aria-label="Minimum similarity"
+            className="astra-search-panel__sort"
+          />
+        )}
+
+        {!isStructure && (
+          <Select
+            options={SORTS}
+            value={sort}
+            onChange={(e) => push((p) => p.set('sort', e.target.value))}
+            aria-label="Sort results"
+            className="astra-search-panel__sort"
+          />
+        )}
 
         <SegmentedControl
           ariaLabel="Result layout"

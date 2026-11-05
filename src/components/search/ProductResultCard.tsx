@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ArrowRight, Building2, FlaskConical } from 'lucide-react';
 import type { ProductRow } from '@/lib/types';
 import { Avatar, Badge, Button } from '@/components/vbds';
@@ -15,16 +16,23 @@ export function ProductResultCard({
   product,
   query,
   view = 'grid',
+  structure,
+  matchLabel,
 }: {
   product: ProductRow;
   query?: string;
   view?: 'grid' | 'list';
+  /** Structure search: the depiction, with matched atoms highlighted. */
+  structure?: ReactNode;
+  /** Structure search: why this matched, e.g. "Similarity 82%". */
+  matchLabel?: string;
 }) {
   const shown = product.companies.slice(0, 4);
   const extra = product.companyCount - shown.length;
 
   return (
     <article className={cx('astra-result', view === 'list' && 'astra-result--list')}>
+      {structure && <div className="astra-result__structure">{structure}</div>}
       <div className="astra-result__top">
         <span className="astra-result__glyph" aria-hidden="true">
           <FlaskConical size={17} />
@@ -46,6 +54,11 @@ export function ProductResultCard({
       </div>
 
       <div className="astra-result__meta">
+        {matchLabel && (
+          <Badge tone="success" size="sm">
+            {matchLabel}
+          </Badge>
+        )}
         <Badge tone="primary" size="sm">
           {product.applicationName}
         </Badge>

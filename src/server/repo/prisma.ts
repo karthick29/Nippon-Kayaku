@@ -17,8 +17,11 @@ import type {
   ProductStatus,
   Role,
   SearchHit,
+  StructureQuery,
+  StructureSearchResult,
   User,
 } from '@/lib/types';
+import { runStructureSearch } from '@/server/chem/structure-search';
 import { bestMatch, scoreMatch } from '@/lib/search-core';
 import { slugify } from '@/lib/slug';
 import { APPLICATIONS, EQUIPMENT_MASTER, LOCATIONS } from '@/data/masters';
@@ -629,6 +632,11 @@ export const prismaRepo: Repository = {
     }
 
     return result.count;
+  },
+
+  async structureSearch(query: StructureQuery): Promise<StructureSearchResult> {
+    // Facet filters run in SQL via listProducts; RDKit ranks the filtered set.
+    return runStructureSearch(query, (q) => prismaRepo.listProducts(q));
   },
 
   async search(q: string, opts): Promise<SearchHit[]> {

@@ -15,8 +15,11 @@ import type {
   ProductQuery,
   ProductRow,
   SearchHit,
+  StructureQuery,
+  StructureSearchResult,
   User,
 } from '@/lib/types';
+import { runStructureSearch } from '@/server/chem/structure-search';
 import { bestMatch, scoreCas, scoreMatch } from '@/lib/search-core';
 import { slugify } from '@/lib/slug';
 import {
@@ -522,6 +525,13 @@ export const memoryRepo: Repository = {
     }
 
     return count;
+  },
+
+  /* ── Structure search ─────────────────────────────────────────── */
+
+  async structureSearch(query: StructureQuery): Promise<StructureSearchResult> {
+    // Shared engine; candidates (and facet filtering) come from listProducts.
+    return runStructureSearch(query, (q) => memoryRepo.listProducts(q));
   },
 
   /* ── Unified search ───────────────────────────────────────────── */

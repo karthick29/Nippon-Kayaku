@@ -286,6 +286,51 @@ export interface SearchHit {
   href: string;
 }
 
+/* ── Structure search ───────────────────────────────────────────── */
+
+export type StructureSearchMode = 'substructure' | 'similarity' | 'exact';
+
+export const STRUCTURE_SEARCH_MODES: StructureSearchMode[] = ['substructure', 'similarity', 'exact'];
+
+export interface StructureQuery {
+  mode: StructureSearchMode;
+  /** SMILES (all modes) or SMARTS (substructure only). */
+  query: string;
+  /** Minimum Tanimoto similarity, 0–1. Similarity mode only. */
+  threshold?: number;
+  limit?: number;
+  /** The same facet filters as text search, applied before structure matching. */
+  filters?: Pick<ProductQuery, 'status' | 'applicationId' | 'categoryId' | 'companyId' | 'locationId' | 'equipment'>;
+}
+
+export interface StructureHit {
+  product: ProductRow;
+  /**
+   * 0–1, higher is better. Substructure: share of the product's heavy
+   * atoms covered by the query. Similarity: Tanimoto (Morgan r=2, 2048
+   * bits). Exact: 1 for an identical InChIKey, 0.9 for same connectivity.
+   */
+  score: number;
+  matchKind: 'exact' | 'connectivity' | 'substructure' | 'similar';
+  /** Atoms and bonds matched by a substructure query, for highlighting. */
+  highlight?: { atoms: number[]; bonds: number[] };
+}
+
+export interface StructureSearchResult {
+  mode: StructureSearchMode;
+  /** How the query text was read. */
+  interpretedAs: 'SMILES' | 'SMARTS';
+  /** Canonical form of the query, when it parsed as SMILES. */
+  canonicalQuery?: string;
+  hits: StructureHit[];
+  /** Hits before `limit` was applied. */
+  total: number;
+  /** Products in scope that have a structure, i.e. were actually compared. */
+  searched: number;
+  /** Products in scope without a recorded structure — invisible to structure search. */
+  withoutStructure: number;
+}
+
 export interface SavedSearch {
   id: string;
   name: string;

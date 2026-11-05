@@ -13,6 +13,8 @@ import type {
   ProductQuery,
   ProductRow,
   SearchHit,
+  StructureQuery,
+  StructureSearchResult,
   User,
 } from '@/lib/types';
 
@@ -91,6 +93,11 @@ export interface Repository {
 
   /* Search */
   search(q: string, opts?: { limit?: number; types?: SearchHit['type'][] }): Promise<SearchHit[]>;
+  /**
+   * Substructure / similarity / exact search over product structures.
+   * Throws ZodError (→ 422) when the query doesn't parse for its mode.
+   */
+  structureSearch(query: StructureQuery): Promise<StructureSearchResult>;
 
   /* Analytics */
   dashboard(): Promise<DashboardMetrics>;

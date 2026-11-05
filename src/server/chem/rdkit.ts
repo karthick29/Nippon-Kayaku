@@ -108,7 +108,8 @@ export interface DepictOptions {
  * RDKit draws CPK element colours on a white rectangle. We draw with no
  * background and rewrite every colour to `currentColor`, so the
  * structure inherits text colour and works in light and dark themes
- * without introducing colour tokens. Highlights use the ASTRA primary token.
+ * without introducing colour tokens. Highlights are drawn behind the bonds
+ * in the primary tint (--vbds-primary-border), so the fragment stays legible.
  */
 export function depictStructure(smiles: string, options: DepictOptions = {}): Promise<string | null> {
   const { width = 240, height = 180, highlight } = options;
@@ -119,9 +120,11 @@ export function depictStructure(smiles: string, options: DepictOptions = {}): Pr
         height,
         clearBackground: false,
         // Cap the scale-up so a 4-atom molecule isn't drawn giant next to a 40-atom one;
-        // large molecules still shrink to fit. Proportional so every size reads the same.
-        fixedBondLength: Math.round(width / 9),
+        // large molecules still shrink to fit. Based on the limiting dimension so a
+        // short, wide box (result cards) scales the same as a 4:3 one.
+        fixedBondLength: Math.round(Math.min(width, height * (4 / 3)) / 7),
         bondLineWidth: 1.5,
+        highlightBondWidthMultiplier: 14,
         padding: 0.08,
         addStereoAnnotation: true,
         highlightColour: HIGHLIGHT_SENTINEL,
@@ -146,6 +149,6 @@ function themeSvg(svg: string): string {
     .replace(/<\?xml[^>]*\?>\s*/, '')
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/\s(width|height)='\d+px'/g, '')
-    .replace(/#FF00FF/gi, 'var(--vbds-primary)')
+    .replace(/#FF00FF/gi, 'var(--vbds-primary-border)')
     .replace(/#[0-9A-F]{6}/gi, 'currentColor');
 }

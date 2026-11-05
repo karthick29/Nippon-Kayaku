@@ -769,8 +769,48 @@
   padding-top: 0;
   margin-left: auto;
 }
+/* Structure search: depiction on top in grid view, at the left in list view. */
+.astra-result__structure {
+  display: flex;
+  justify-content: center;
+}
+/* Capped height keeps several results above the fold; the SVG letterboxes via its viewBox. */
+.astra-result__structure .astra-structure {
+  max-width: none;
+  aspect-ratio: auto;
+  height: 150px;
+}
+.astra-result__structure .astra-structure svg {
+  height: 100%;
+}
+/* Same ~2:1 shape as the 'wide' depiction, so list rows don't shrink it to a speck. */
+.astra-result--list .astra-result__structure {
+  flex: 0 0 200px;
+}
+.astra-result--list .astra-result__structure .astra-structure {
+  height: 96px;
+}
 
 /* ── Search page ────────────────────────────────────────────────── */
+.astra-search-panel__modes {
+  display: flex;
+  margin-bottom: var(--vbds-space-12);
+  overflow-x: auto;
+}
+/* SMILES is case- and character-significant — show it in mono. */
+.astra-search-panel__field--structure .vbds-search__input {
+  font-family: var(--vbds-font-mono);
+}
+.astra-structure-summary {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-secondary);
+  word-break: break-word;
+}
+.astra-search-panel__structure-hint {
+  margin-top: var(--vbds-space-8);
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-tertiary);
+}
 .astra-search-panel {
   position: sticky;
   top: var(--astra-topbar-height);
