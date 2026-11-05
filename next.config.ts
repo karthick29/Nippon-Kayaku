@@ -3,6 +3,12 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // Self-contained server bundle in .next/standalone — used by `npm run build:external`.
   output: 'standalone',
+  // RDKit.js loads its .wasm from its own package directory at runtime — keep it
+  // out of the server bundle, and make sure the standalone trace copies the binary.
+  serverExternalPackages: ['@rdkit/rdkit'],
+  outputFileTracingIncludes: {
+    '/**': ['./node_modules/@rdkit/rdkit/dist/RDKit_minimal.wasm'],
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
