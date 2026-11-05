@@ -5,9 +5,10 @@ import { Stack } from '@/components/page/PageHeader';
 import { Badge, Card, CardHeader, EmptyState } from '@/components/vbds';
 import { formatDate, orDash } from '@/lib/format';
 import { statusTone } from '@/lib/status';
-import { ROUTE_ROLE_LABELS, supplyRisk } from '@/lib/synthesis';
+import { MAP_DEPTH, ROUTE_ROLE_LABELS, supplyRisk, type SynthesisMap } from '@/lib/synthesis';
 import type { ProductSummary, RouteInputView, SynthesisRouteView, WhereUsedEntry } from '@/lib/types';
 import { AddRouteButton, RouteActions, type CatalogueOption } from './RouteEditor';
+import { SynthesisMapDiagram } from './SynthesisMap';
 
 /* ════════════════════════════════════════════════════════════════════
    Synthesis tab — "Made from" (this product's routes) and "Used in"
@@ -24,12 +25,15 @@ export function SynthesisTab({
   whereUsed,
   canEdit,
   catalogue,
+  map,
 }: {
   product: { id: string; name: string };
   routes: SynthesisRouteView[];
   whereUsed: WhereUsedEntry[];
   canEdit: boolean;
   catalogue: CatalogueOption[];
+  /** The product alone (no routes, no uses) has nothing to draw. */
+  map: SynthesisMap;
 }) {
   const preferred = routes.find((r) => r.isPreferred) ?? routes[0];
   const atRisk = (preferred?.inputs ?? []).filter(
@@ -55,6 +59,16 @@ export function SynthesisTab({
             {atRisk.some((i) => i.product!.companyCount === 0) ? ' has no secured source today.' : '.'}
           </p>
         </div>
+      )}
+
+      {map.nodes.length > 1 && (
+        <Card padding="md">
+          <CardHeader
+            title="Synthesis map"
+            subtitle={`Inputs on the left, products made from ${product.name} on the right — preferred routes, up to ${MAP_DEPTH} steps each way`}
+          />
+          <SynthesisMapDiagram map={map} productName={product.name} />
+        </Card>
       )}
 
       <Card padding="md">

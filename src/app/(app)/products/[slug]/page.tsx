@@ -32,6 +32,7 @@ import { formatDate, formatDateTime, formatNumber, formatRelative, orDash } from
 import { statusTone } from '@/lib/status';
 import { auth } from '@/server/auth';
 import { can } from '@/server/rbac';
+import { loadSynthesisMap } from '@/server/synthesis-map';
 import { repo } from '@/server/repo';
 import { ProductActions } from './ProductActions';
 import { ProductCompaniesTable } from './ProductCompaniesTable';
@@ -90,6 +91,10 @@ export default async function ProductDetailPage({
           .map((p) => ({ id: p.id, name: p.name, casNumber: p.casNumber }))
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
+  const synthesisMap =
+    activeTab === 'synthesis'
+      ? await loadSynthesisMap({ id: product.id, name: product.name, slug: product.slug }, routes, whereUsed)
+      : null;
 
   return (
     <div className="astra-page astra-page--wide">
@@ -170,13 +175,14 @@ export default async function ProductDetailPage({
             productName={product.name}
           />
         )}
-        {activeTab === 'synthesis' && (
+        {activeTab === 'synthesis' && synthesisMap && (
           <SynthesisTab
             product={{ id: product.id, name: product.name }}
             routes={routes}
             whereUsed={whereUsed}
             canEdit={canEditRoutes}
             catalogue={catalogue}
+            map={synthesisMap}
           />
         )}
         {activeTab === 'documents' && <DocumentsTab documents={documents} />}

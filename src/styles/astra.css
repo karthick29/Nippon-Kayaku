@@ -1930,6 +1930,105 @@
   text-decoration: none;
 }
 
+/* Synthesis map — inline SVG; every colour is a token so it themes. */
+.astra-map-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-12);
+}
+.astra-map {
+  display: block;
+  font-family: var(--vbds-font);
+}
+.astra-map__edge {
+  fill: none;
+  stroke: var(--vbds-border-strong);
+  stroke-width: 1.5;
+}
+.astra-map__arrowhead {
+  fill: var(--vbds-border-strong);
+}
+.astra-map__node {
+  fill: var(--vbds-surface);
+  stroke: var(--vbds-border-strong);
+  stroke-width: 1.25;
+}
+.astra-map__node--focus {
+  fill: var(--vbds-primary-subtle);
+  stroke: var(--vbds-primary);
+  stroke-width: 2;
+}
+.astra-map__node--external {
+  fill: var(--vbds-surface-2);
+  stroke-dasharray: 4 3;
+}
+.astra-map__node--risk-single {
+  stroke: var(--vbds-warning);
+  stroke-width: 2;
+}
+.astra-map__node--risk-none {
+  stroke: var(--vbds-danger);
+  stroke-width: 2;
+}
+.astra-map__label {
+  fill: var(--vbds-text);
+  font-size: var(--vbds-body-size);
+  font-weight: 600;
+}
+.astra-map__detail {
+  fill: var(--vbds-text-secondary);
+  font-size: var(--vbds-caption-size);
+}
+.astra-map__link {
+  cursor: pointer;
+}
+.astra-map__link:hover .astra-map__node,
+.astra-map__link:focus-visible .astra-map__node {
+  stroke: var(--vbds-primary);
+  stroke-width: 2.5;
+}
+.astra-map__link:focus-visible {
+  outline: none;
+}
+.astra-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-8) var(--vbds-space-16);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-secondary);
+}
+.astra-map-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vbds-space-8);
+}
+.astra-map-legend__swatch {
+  width: 18px;
+  height: 12px;
+  border-radius: var(--vbds-radius-xs);
+  border: 1.5px solid var(--vbds-border-strong);
+  background: var(--vbds-surface);
+}
+.astra-map-legend__swatch--focus {
+  border-color: var(--vbds-primary);
+  background: var(--vbds-primary-subtle);
+}
+.astra-map-legend__swatch--external {
+  border-style: dashed;
+  background: var(--vbds-surface-2);
+}
+.astra-map-legend__swatch--single {
+  border-color: var(--vbds-warning);
+  border-width: 2px;
+}
+.astra-map-legend__swatch--none {
+  border-color: var(--vbds-danger);
+  border-width: 2px;
+}
+
 /* Route editor — scrolls inside the dialog; the dialog itself only caps height. */
 .astra-route-editor {
   display: flex;
