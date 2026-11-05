@@ -121,6 +121,8 @@ function mapProduct(row: any): Product {
     name: row.name,
     slug: row.slug,
     casNumber: row.casNumber,
+    smiles: row.smiles ?? undefined,
+    inchiKey: row.inchiKey ?? undefined,
     molecularFormula: row.molecularFormula ?? undefined,
     molecularWeight: row.molecularWeight ? Number(row.molecularWeight) : undefined,
     applicationId: row.applicationId,
@@ -335,6 +337,8 @@ export const prismaRepo: Repository = {
         name: input.name,
         slug: slugify(input.name),
         casNumber: input.casNumber,
+        smiles: input.smiles || null,
+        inchiKey: input.inchiKey || null,
         molecularFormula: input.molecularFormula ?? null,
         molecularWeight: input.molecularWeight ?? null,
         applicationId: input.applicationId,
@@ -387,6 +391,9 @@ export const prismaRepo: Repository = {
     set('name', input.name, existing.name);
     if (input.name) data.slug = slugify(input.name);
     set('casNumber', input.casNumber, existing.casNumber);
+    // '' clears the structure; stored as NULL.
+    if (input.smiles !== undefined) set('smiles', input.smiles || null, existing.smiles);
+    if (input.inchiKey !== undefined) set('inchiKey', input.inchiKey || null, existing.inchiKey);
     set('molecularFormula', input.molecularFormula, existing.molecularFormula);
     set('molecularWeight', input.molecularWeight, existing.molecularWeight);
     set('applicationId', input.applicationId, existing.applicationId);
@@ -449,6 +456,8 @@ export const prismaRepo: Repository = {
       {
         name: `${source.name} (copy)`,
         casNumber: source.casNumber,
+        smiles: source.smiles ?? undefined,
+        inchiKey: source.inchiKey ?? undefined,
         molecularFormula: source.molecularFormula ?? undefined,
         molecularWeight: source.molecularWeight ? Number(source.molecularWeight) : undefined,
         applicationId: source.applicationId,

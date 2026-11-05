@@ -1702,6 +1702,96 @@
   vertical-align: middle;
 }
 
+/* ── Chemical structures ────────────────────────────────────────── */
+/* RDKit SVG is drawn in currentColor (see server/chem/rdkit.ts), so the
+   structure takes the text colour and themes with light/dark. */
+.astra-structure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vbds-text);
+  background: var(--vbds-surface-2);
+  border: 1px solid var(--vbds-divider);
+  border-radius: var(--vbds-radius-sm);
+  padding: var(--vbds-space-8);
+  width: 100%;
+}
+.astra-structure svg {
+  width: 100%;
+  height: auto;
+}
+.astra-structure--sm {
+  max-width: 160px;
+  aspect-ratio: 4 / 3;
+}
+.astra-structure--md {
+  max-width: 320px;
+  aspect-ratio: 32 / 22;
+}
+.astra-structure--lg {
+  max-width: 480px;
+  aspect-ratio: 3 / 2;
+}
+.astra-structure--empty {
+  color: var(--vbds-text-tertiary);
+}
+.astra-structure-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vbds-space-12);
+}
+.astra-structure-panel__caption {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-tertiary);
+  text-align: center;
+}
+.astra-structure--loading {
+  opacity: 0.55;
+}
+.astra-break-all {
+  word-break: break-all;
+}
+
+/* SMILES input + live preview, side by side; stacks on narrow screens. */
+.astra-structure-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: var(--vbds-space-16);
+  align-items: start;
+}
+.astra-structure-field__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-8);
+  min-width: 0;
+}
+.astra-structure-field__derived {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-secondary);
+}
+.astra-structure-field__warning {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-8);
+  padding: var(--vbds-space-8) var(--vbds-space-12);
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text);
+  background: var(--vbds-warning-subtle);
+  border: 1px solid var(--vbds-warning-border);
+  border-radius: var(--vbds-radius-sm);
+}
+.astra-structure-field__warning > svg {
+  color: var(--vbds-warning);
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .astra-structure-field {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Utility ────────────────────────────────────────────────────── */
 .astra-scroll-x {
   overflow-x: auto;

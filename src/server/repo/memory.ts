@@ -209,6 +209,8 @@ export const memoryRepo: Repository = {
       name: input.name,
       slug: slugify(input.name),
       casNumber: input.casNumber,
+      smiles: input.smiles || undefined,
+      inchiKey: input.inchiKey || undefined,
       molecularFormula: input.molecularFormula,
       molecularWeight: input.molecularWeight,
       applicationId: input.applicationId,
@@ -268,6 +270,9 @@ export const memoryRepo: Repository = {
     assign('name', input.name);
     if (input.name) product.slug = slugify(input.name);
     assign('casNumber', input.casNumber);
+    // '' clears the structure — assign() only skips undefined.
+    assign('smiles', input.smiles);
+    assign('inchiKey', input.inchiKey);
     assign('molecularFormula', input.molecularFormula);
     assign('molecularWeight', input.molecularWeight);
     assign('status', input.status);
@@ -334,6 +339,8 @@ export const memoryRepo: Repository = {
       {
         name: `${source.name} (copy)`,
         casNumber: source.casNumber,
+        smiles: source.smiles,
+        inchiKey: source.inchiKey,
         molecularFormula: source.molecularFormula,
         molecularWeight: source.molecularWeight,
         applicationId: source.applicationId,

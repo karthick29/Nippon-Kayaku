@@ -133,6 +133,14 @@ export interface Product {
   name: string;
   slug: string;
   casNumber: string;
+  /**
+   * RDKit canonical SMILES. For a solution or formulation this is the
+   * active substance. Absent (or empty) when no structure is recorded —
+   * e.g. organometallic precatalysts that SMILES represents poorly.
+   */
+  smiles?: string;
+  /** Standard InChIKey derived from `smiles` — structure identity. */
+  inchiKey?: string;
   molecularFormula?: string;
   molecularWeight?: number;
   applicationId: string;

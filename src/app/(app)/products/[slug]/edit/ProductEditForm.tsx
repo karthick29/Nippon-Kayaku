@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import type { Application, ProductCategory, ProductRow, ProductStatus } from '@/lib/types';
+import { StructureField } from '@/components/chem/StructureField';
 import { Button, Card, SearchField, Select, TextArea, TextField } from '@/components/vbds';
 import { productBasicsSchema, type ProductBasicsValues } from '@/lib/validation';
 
@@ -32,6 +33,7 @@ export function ProductEditForm({
     defaultValues: {
       name: product.name,
       casNumber: product.casNumber,
+      smiles: product.smiles ?? '',
       molecularFormula: product.molecularFormula ?? '',
       molecularWeight: product.molecularWeight,
       applicationId: product.applicationId,
@@ -56,6 +58,8 @@ export function ProductEditForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...values,
+          // '' only when clearing an existing structure — otherwise the audit log records a no-op change.
+          smiles: values.smiles || (product.smiles ? '' : undefined),
           molecularFormula: values.molecularFormula || undefined,
           description: values.description || undefined,
           synonyms,
@@ -127,6 +131,10 @@ export function ProductEditForm({
             supportingText={form.formState.errors.molecularWeight?.message ?? 'g/mol'}
             {...form.register('molecularWeight')}
           />
+
+          <div className="astra-form-grid__full">
+            <StructureField form={form} />
+          </div>
 
           <Select
             label="Status"

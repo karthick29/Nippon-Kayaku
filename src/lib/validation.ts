@@ -32,6 +32,23 @@ export const casSchema = z
   .regex(CAS_PATTERN, 'Use the CAS format 000000-00-0')
   .refine(isValidCasChecksum, 'CAS check digit does not validate');
 
+/** Hard cap on SMILES / SMARTS input — bounds parse and match cost on the server. */
+export const MAX_STRUCTURE_LENGTH = 1000;
+
+/**
+ * SMILES — shape check only. Real parsing needs RDKit, which runs on the
+ * server: the API canonicalises the structure and returns a 422 on the
+ * `smiles` field if it doesn't parse. Empty string clears the structure.
+ * An optional CXSMILES extension (` |…|`) is the only whitespace allowed.
+ */
+export const smilesSchema = z
+  .string()
+  .trim()
+  .max(MAX_STRUCTURE_LENGTH, `SMILES must be ${MAX_STRUCTURE_LENGTH} characters or fewer`)
+  .regex(/^(\S+( \|[^|]*\|)?)?$/, 'A SMILES string has no spaces')
+  .optional()
+  .or(z.literal(''));
+
 export const productStatusSchema = z.enum(
   PRODUCT_STATUSES as [(typeof PRODUCT_STATUSES)[number], ...(typeof PRODUCT_STATUSES)[number][]],
 );
@@ -45,6 +62,7 @@ export const productBasicsSchema = z.object({
     .min(2, 'Product name must be at least 2 characters')
     .max(180, 'Product name must be 180 characters or fewer'),
   casNumber: casSchema,
+  smiles: smilesSchema,
   molecularFormula: z
     .string()
     .trim()

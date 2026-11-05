@@ -1,5 +1,7 @@
 import 'server-only';
 import type { MainModule as RDKitModule, Mol } from '@rdkit/rdkit';
+import { countMolJson, formatHill } from '@/lib/formula';
+import { MAX_STRUCTURE_LENGTH } from '@/lib/validation';
 
 /* ════════════════════════════════════════════════════════════════════
    Chemistry service — RDKit.js (WASM) on the Node runtime.
@@ -22,8 +24,7 @@ declare global {
   var __astraRDKit: Promise<RDKitModule> | undefined;
 }
 
-/** Hard cap on SMILES / SMARTS input — bounds parse and match cost. */
-export const MAX_STRUCTURE_LENGTH = 1000;
+export { MAX_STRUCTURE_LENGTH };
 
 export function loadRDKit(): Promise<RDKitModule> {
   if (!globalThis.__astraRDKit) {
@@ -57,7 +58,7 @@ export interface StructureInfo {
   canonicalSmiles: string;
   /** Standard InChIKey — identity for duplicate detection. Empty when InChI generation fails (e.g. some organometallics). */
   inchiKey: string;
-  /** Hill formula from the InChI main layer; multi-component structures are dot-separated. */
+  /** Hill formula of the whole structure, all components summed (e.g. salts, hydrates). */
   formula: string;
   /** Average molecular weight, 2 dp. */
   molecularWeight: number;
@@ -71,10 +72,22 @@ export function describeStructure(smiles: string): Promise<StructureInfo | null>
     return {
       canonicalSmiles: mol.get_smiles(),
       inchiKey: inchi ? rdkit.get_inchikey_for_inchi(inchi) : '',
-      formula: inchi.split('/')[1] ?? '',
+      formula: hillFormula(mol),
       molecularWeight: Math.round(descriptors.amw * 100) / 100,
     };
   });
+}
+
+/* ── Formula ────────────────────────────────────────────────────── */
+
+/**
+ * Hill-order formula counted from the actual atoms.
+ *
+ * Not taken from the InChI: InChI neutralises charged components, so
+ * Pd(OAc)₂ would come out as 2×acetic acid + Pd — two hydrogens too many.
+ */
+export function hillFormula(mol: Mol): string {
+  return formatHill(countMolJson(mol.get_json()));
 }
 
 /* ── Depiction ──────────────────────────────────────────────────── */
@@ -105,6 +118,9 @@ export function depictStructure(smiles: string, options: DepictOptions = {}): Pr
         width,
         height,
         clearBackground: false,
+        // Cap the scale-up so a 4-atom molecule isn't drawn giant next to a 40-atom one;
+        // large molecules still shrink to fit. Proportional so every size reads the same.
+        fixedBondLength: Math.round(width / 9),
         bondLineWidth: 1.5,
         padding: 0.08,
         addStereoAnnotation: true,

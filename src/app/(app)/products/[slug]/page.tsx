@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PageHeader, Stack } from '@/components/page/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
+import { StructureImage } from '@/components/chem/StructureImage';
 import { MagnitudeBars } from '@/components/charts/MagnitudeBars';
 import {
   Badge,
@@ -225,6 +226,36 @@ function OverviewTab({
           )}
         </Card>
 
+        <Stack gap={16}>
+        <Card padding="md">
+          <CardHeader
+            title="Chemical structure"
+            subtitle={
+              product.categoryId === 'cat-formulation' ? 'Active substance of this formulation' : 'Recorded structure and identifiers'
+            }
+          />
+          {product.smiles ? (
+            <div className="astra-structure-panel">
+              <StructureImage smiles={product.smiles} name={product.name} size="md" />
+              <DescriptionList>
+                <DescriptionItem term="SMILES">
+                  <span className="astra-table__mono astra-break-all">{product.smiles}</span>
+                </DescriptionItem>
+                <DescriptionItem term="InChIKey">
+                  <span className="astra-table__mono astra-break-all">{orDash(product.inchiKey)}</span>
+                </DescriptionItem>
+              </DescriptionList>
+            </div>
+          ) : (
+            <EmptyState
+              size="sm"
+              icon={<FlaskConical size={20} />}
+              title="No structure recorded"
+              description="Add a SMILES string from the edit page to show the structure and enable structure search."
+            />
+          )}
+        </Card>
+
         <Card padding="md">
           <CardHeader title="Description" subtitle="What it is and where it is used" />
           {product.description ? (
@@ -276,6 +307,7 @@ function OverviewTab({
             </>
           )}
         </Card>
+        </Stack>
       </div>
     </Stack>
   );

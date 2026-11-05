@@ -33,6 +33,8 @@ import {
   TextArea,
   TextField,
 } from '@/components/vbds';
+import { StructureField, useStructurePreview } from '@/components/chem/StructureField';
+import { StructureSvg } from '@/components/chem/StructureSvg';
 import { productBasicsSchema, type ProductBasicsValues } from '@/lib/validation';
 import { statusTone } from '@/lib/status';
 import { cx } from '@/lib/cn';
@@ -93,6 +95,7 @@ export function ProductWizard({
     defaultValues: {
       name: '',
       casNumber: '',
+      smiles: '',
       molecularFormula: '',
       molecularWeight: undefined,
       applicationId: applications[0]?.id ?? '',
@@ -103,6 +106,8 @@ export function ProductWizard({
   });
 
   const values = form.watch();
+  // One preview for both step 1 (the field) and step 3 (review).
+  const structurePreview = useStructurePreview(values.smiles);
 
   /* ── Draft restore (once, on mount) ───────────────────────────── */
   useEffect(() => {
@@ -214,6 +219,7 @@ export function ProductWizard({
     try {
       const payload = {
         ...form.getValues(),
+        smiles: values.smiles || undefined,
         molecularFormula: values.molecularFormula || undefined,
         description: values.description || undefined,
         synonyms,
@@ -354,6 +360,10 @@ export function ProductWizard({
                 supportingText={form.formState.errors.molecularWeight?.message ?? 'g/mol'}
                 {...form.register('molecularWeight')}
               />
+
+              <div className="astra-form-grid__full">
+                <StructureField form={form} preview={structurePreview} />
+              </div>
 
               <Select
                 label="Status"
@@ -581,6 +591,17 @@ export function ProductWizard({
 
             <DescriptionList>
               <DescriptionItem term="Category">{categoryName}</DescriptionItem>
+              <DescriptionItem term="Structure">
+                {structurePreview.status === 'valid' ? (
+                  <StructureSvg svg={structurePreview.svg ?? null} label={`Structure of ${values.name || 'new product'}`} size="sm" />
+                ) : structurePreview.status === 'invalid' ? (
+                  <span style={{ color: 'var(--vbds-danger)' }}>{structurePreview.message}</span>
+                ) : values.smiles ? (
+                  'Checking…'
+                ) : (
+                  '—'
+                )}
+              </DescriptionItem>
               <DescriptionItem term="Molecular formula">{values.molecularFormula || '—'}</DescriptionItem>
               <DescriptionItem term="Molecular weight">
                 {values.molecularWeight ? `${values.molecularWeight} g/mol` : '—'}

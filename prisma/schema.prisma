@@ -192,6 +192,11 @@ model Product {
   slug              String        @unique
   /// CAS Registry Number, stored canonically as 000000-00-0.
   casNumber         String        @map("cas_number")
+  /// RDKit canonical SMILES (active substance for solutions). Set by the API, never raw input.
+  smiles            String?
+  /// Standard InChIKey derived from smiles. Not unique: a pure substance and its
+  /// solution are distinct products with the same structure.
+  inchiKey          String?       @map("inchi_key")
   molecularFormula  String?       @map("molecular_formula")
   molecularWeight   Decimal?      @map("molecular_weight") @db.Decimal(10, 4)
   applicationId     String        @map("application_id")
@@ -216,6 +221,7 @@ model Product {
   @@index([categoryId])
   @@index([status])
   @@index([casNumber])
+  @@index([inchiKey])
   @@index([deletedAt])
   @@index([createdAt])
   @@map("products")

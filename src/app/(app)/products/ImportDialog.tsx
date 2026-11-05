@@ -20,6 +20,7 @@ const TEMPLATE_HEADERS = [
   'Product Name',
   'CAS Number',
   'Molecular Formula',
+  'SMILES',
   'Application',
   'Category',
   'Status',
@@ -30,6 +31,8 @@ interface ParsedRow {
   name: string;
   casNumber: string;
   molecularFormula?: string;
+  /** Optional; canonicalised and validated by the API on import. */
+  smiles?: string;
   applicationId?: string;
   categoryId?: string;
   status: ProductStatus;
@@ -99,6 +102,7 @@ export function ImportDialog({
         name,
         casNumber,
         molecularFormula: (record['Molecular Formula'] ?? '').trim() || undefined,
+        smiles: (record['SMILES'] ?? record['smiles'] ?? '').trim() || undefined,
         applicationId: application?.id,
         categoryId: category?.id,
         status: status ?? 'Development',
@@ -126,6 +130,7 @@ export function ImportDialog({
             name: row.name,
             casNumber: row.casNumber,
             molecularFormula: row.molecularFormula,
+            smiles: row.smiles,
             applicationId: row.applicationId,
             categoryId: row.categoryId,
             status: row.status,

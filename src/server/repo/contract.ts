@@ -27,6 +27,13 @@ import type {
 export interface ProductInput {
   name: string;
   casNumber: string;
+  /**
+   * Canonical SMILES and its InChIKey — set by the API layer via
+   * `resolveStructureInput()`, never straight from user input. Empty
+   * string clears the structure; undefined leaves it unchanged.
+   */
+  smiles?: string;
+  inchiKey?: string;
   molecularFormula?: string;
   molecularWeight?: number;
   applicationId: string;

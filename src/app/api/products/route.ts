@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { created, ok, readJson, route } from '@/server/api';
 import { currentActor, requirePermission } from '@/server/auth';
 import { repo } from '@/server/repo';
+import { resolveStructureInput } from '@/server/chem/structure-input';
 import { parseProductQuery, productCreateSchema } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
@@ -18,11 +19,13 @@ export const GET = route(async (request: NextRequest) => {
 export const POST = route(async (request: NextRequest) => {
   await requirePermission('product:create');
   const body = productCreateSchema.parse(await readJson(request));
+  const structure = await resolveStructureInput(body.smiles);
   const actor = await currentActor();
 
   const product = await repo.createProduct(
     {
       ...body,
+      ...structure,
       molecularFormula: body.molecularFormula || undefined,
       description: body.description || undefined,
       companies: body.companies?.map((c) => ({

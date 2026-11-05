@@ -250,6 +250,8 @@ export function ProductsTable({
       { header: 'CAS Number', accessor: (p) => p.casNumber, width: 16 },
       { header: 'Molecular Formula', accessor: (p) => p.molecularFormula ?? '', width: 18 },
       { header: 'Molecular Weight', accessor: (p) => p.molecularWeight ?? '', width: 16 },
+      { header: 'SMILES', accessor: (p) => p.smiles ?? '', width: 40 },
+      { header: 'InChIKey', accessor: (p) => p.inchiKey ?? '', width: 30 },
       { header: 'Application', accessor: (p) => p.applicationName, width: 30 },
       { header: 'Category', accessor: (p) => p.categoryName, width: 18 },
       { header: 'Status', accessor: (p) => p.status, width: 14 },

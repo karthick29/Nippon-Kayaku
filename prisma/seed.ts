@@ -205,6 +205,8 @@ async function main() {
           name: p.name,
           slug: p.slug,
           casNumber: p.casNumber,
+          smiles: p.smiles ?? null,
+          inchiKey: p.inchiKey ?? null,
           molecularFormula: p.molecularFormula,
           molecularWeight: p.molecularWeight ?? null,
           applicationId: applicationBySeedId.get(p.applicationId)!,

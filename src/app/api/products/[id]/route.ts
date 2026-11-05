@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { fail, ok, readJson, route } from '@/server/api';
 import { currentActor, requirePermission } from '@/server/auth';
 import { repo } from '@/server/repo';
+import { resolveStructureInput } from '@/server/chem/structure-input';
 import { productUpdateSchema } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
@@ -21,12 +22,14 @@ export const PATCH = route(async (request: NextRequest, { params }: Context) => 
   await requirePermission('product:update');
   const { id } = await params;
   const body = productUpdateSchema.parse(await readJson(request));
+  const structure = await resolveStructureInput(body.smiles);
   const actor = await currentActor();
 
   const product = await repo.updateProduct(
     id,
     {
       ...body,
+      ...structure,
       molecularFormula: body.molecularFormula || undefined,
       description: body.description || undefined,
     },
