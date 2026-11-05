@@ -219,6 +219,24 @@ and text in ink tokens rather than series colours.
 
 ---
 
+## Chemical structures and the synthesis map
+
+Neither has a VBDS equivalent, so both are `astra-*` compositions — and neither adds a colour token.
+
+**Structure depictions** are drawn by RDKit on the server, then every colour in the SVG is rewritten
+to `currentColor`. A structure inherits the text colour of wherever it sits, so it is correct in
+light and dark mode with no per-theme drawing. Element colours (red O, blue N) are deliberately
+dropped: atom labels already say which element it is, and a CPK palette would be a second,
+unvalidated categorical palette. Substructure matches are highlighted in `--vbds-primary-border`
+behind the bonds, so the fragment stays legible on top of it.
+
+**The synthesis map** uses semantic tokens only — `--vbds-primary` for the product in focus,
+`--vbds-warning` / `--vbds-danger` borders for single- and no-supplier inputs, a dashed outline for
+external substances. Following the chart rules, none of that is colour-only: each node's second
+line states the same thing in words, a legend sits under the map, and the Made from / Used in
+tables are the full accessible view. It is a diagram, not a chart — no categorical hues, nothing
+for the palette validator to check.
+
 ## Working with the design system
 
 **Do:**

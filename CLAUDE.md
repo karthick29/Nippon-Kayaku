@@ -55,7 +55,34 @@ in-memory adapter and `prisma/seed.ts` are supposed to produce identical content
 
 ### 6. The store lives on `globalThis`
 `src/server/repo/store.ts` does this so writes survive hot reload. A module-level `const` would
-reset on every edit.
+reset on every edit. The corollary: after changing anything in `src/data/`, **restart the dev
+server** — the old store survives hot reload, so new seed data won't appear.
+
+### 7. RDKit runs on the server, and every `Mol` must be freed
+`src/server/chem/rdkit.ts` loads RDKit.js (WASM) once per process. Each `Mol` is WASM heap memory
+the garbage collector can't see — use `withMol()`, never a bare `get_mol()` without
+`.delete()`. `@rdkit/rdkit` must stay in `serverExternalPackages` in `next.config.ts`, or it
+can't find its `.wasm` at runtime; never import it into a Client Component.
+
+### 8. Seed chemistry is verified — don't hand-type it
+Product SMILES were sourced from PubChem by CAS and checked by InChIKey, formula and weight. After
+any change to `src/data/products.ts` or `src/data/routes.ts`, run `npm run check:structures`.
+Formula agreement alone **does not** catch a wrong enantiomer; the InChIKey check does. Take a
+molecule's formula from its atoms (`hillFormula`), not its InChI — InChI neutralises salts.
+
+### 9. Prisma master data must keep its fixed ids
+`prisma/seed.ts` creates applications, categories and locations with their `src/data/masters.ts`
+ids (`app-pharma-agro`…), because forms and filters use those ids in both adapters. Let them
+default to cuids and product creates fail their foreign key on PostgreSQL — silently fine on the
+in-memory default, which is how it went unnoticed.
+
+### 10. SVG `<title>` / `<desc>` take a single string
+Mixed JSX children (`{a} — {b}`) put text separators inside them and cause a hydration mismatch
+that only shows in the browser. Use a template literal.
+
+### 11. `.astra-table` truncates by design
+Its cells use `max-width: 0` + ellipsis so dense grids stay one line. For tables where the
+text *is* the point (chemical names), add `.astra-table--wrap`; don't change the base rule.
 
 ---
 
@@ -83,10 +110,14 @@ Lucide only. VBDS component props take `ReactNode`, not Material Symbols strings
 ### Data access
 Pages import `repo` from `@/server/repo`. **Never import an adapter directly.** If you add a
 method, add it to `contract.ts` and implement it in *both* `memory.ts` and `prisma.ts`.
+Logic both adapters need (structure search, route write rules, the synthesis graph) lives in one
+shared module that each adapter calls — so the two backends can't enforce different rules.
 
 ### Validation
 Zod schemas in `lib/validation.ts` are shared between React Hook Form and the API routes. Add a
 field there, not in two places. CAS numbers are checksum-validated, not just pattern-matched.
+Checks that need the server (does this SMILES parse? would this route form a loop?) throw
+`throwFieldError(path, message)` — same 422 envelope, so forms show them under the right field.
 
 ### Authorization
 `server/rbac.ts` is the single source of truth. Three layers, in order of authority:
@@ -121,6 +152,7 @@ If you change `--vbds-chart-*`, re-run the validator before committing.
 npm run dev          # zero-config dev server
 npm run build        # must compile with no errors and no warnings
 npm run typecheck    # must pass with zero errors
+npm run check:structures  # after editing seed chemistry — must pass
 ```
 
 Both `typecheck` and `build` are currently clean. Keep them that way.
@@ -139,6 +171,12 @@ Both `typecheck` and `build` are currently clean. Keep them that way.
 | RBAC map | `src/server/rbac.ts` |
 | Design tokens | `src/styles/tokens.css` |
 | Chart rules | `src/components/charts/chart-theme.ts` |
+| RDKit, depiction, structure search | `src/server/chem/` |
+| Formula parsing / Hill order | `src/lib/formula.ts` |
+| Synthesis graph, where-used, map layout | `src/lib/synthesis.ts` |
+| Route write rules (both adapters) | `src/server/synthesis.ts` |
+| Seed routes | `src/data/routes.ts` |
+| Seed structure verification | `scripts/check-structures.ts` |
 | Source design system | `~/MyStuff/designsystem/src` |
 
 ---
@@ -153,4 +191,8 @@ Don't "fix" these without asking — they're scoped decisions, and the README st
   rather than pretending to work.
 - **Companies have API + repository write paths but no create/edit UI.** Products have the full
   wizard/edit/delete UI.
+- **Seeded synthesis routes are `unreviewed`.** They summarise literature processes; a chemist
+  marks them reviewed. Don't flip them in the seed.
+- **Structures are entered as SMILES text.** There is no drawing editor (Ketcher was considered
+  and deferred for bundle size).
 - **Import accepts CSV**, not native `.xlsx`. Export produces real `.xlsx` via ExcelJS.

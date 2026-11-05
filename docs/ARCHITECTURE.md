@@ -6,12 +6,14 @@
 2. [Folder structure](#folder-structure)
 3. [Data layer](#data-layer)
 4. [Search engine](#search-engine)
-5. [Authentication](#authentication)
-6. [Authorization (RBAC)](#authorization-rbac)
-7. [Rendering strategy](#rendering-strategy)
-8. [Performance](#performance)
-9. [Security](#security)
-10. [Accessibility](#accessibility)
+5. [Chemistry engine](#chemistry-engine)
+6. [Synthesis graph](#synthesis-graph)
+7. [Authentication](#authentication)
+8. [Authorization (RBAC)](#authorization-rbac)
+9. [Rendering strategy](#rendering-strategy)
+10. [Performance](#performance)
+11. [Security](#security)
+12. [Accessibility](#accessibility)
 
 ---
 
@@ -58,7 +60,10 @@ src/
 │   │   │   ├── page.tsx            Data table
 │   │   │   ├── new/                Three-step wizard
 │   │   │   └── [slug]/
-│   │   │       ├── page.tsx        Five tabs
+│   │   │       ├── page.tsx        Six tabs
+│   │   │       ├── SynthesisTab.tsx   Made from · Used in · supply-risk callout
+│   │   │       ├── SynthesisMap.tsx   Server-rendered SVG map
+│   │   │       ├── RouteEditor.tsx    Add / edit / remove routes (client)
 │   │   │       └── edit/
 │   │   ├── companies/
 │   │   │   ├── page.tsx
@@ -66,23 +71,27 @@ src/
 │   │   ├── analytics/
 │   │   ├── reports/
 │   │   └── settings/               Layout + nav + 5 sub-pages
-│   └── api/                        REST route handlers
+│   └── api/                        REST route handlers (incl. structure/, routes/)
 ├── components/
 │   ├── vbds/                       Design system port (actions, inputs, display, navigation, feedback, overlays)
 │   ├── charts/                     ChartCard, MagnitudeBars, StatusStack, TrendChart, chart-theme
 │   ├── data-table/                 Generic TanStack DataTable
 │   ├── search/                     Highlight, ProductResultCard
+│   ├── chem/                       StructureImage (server), StructureSvg, StructureField (client)
 │   ├── shell/                      AppShell, Sidebar, Topbar, CommandPalette, ThemeProvider, Logo
 │   └── page/                       PageHeader, Stack
 ├── data/                           Deterministic seed corpus
 │   ├── masters.ts                  Applications, categories, locations, equipment master
 │   ├── companies.ts                22 company seeds + equipment expansion
-│   ├── products.ts                 50 product seeds
-│   └── dataset.ts                  Assembly: links, users, audit logs, documents
+│   ├── products.ts                 50 product seeds, with SMILES + InChIKey
+│   ├── routes.ts                   9 synthesis route seeds, referenced by CAS
+│   └── dataset.ts                  Assembly: links, users, audit logs, documents, routes
 ├── lib/                            Framework-free utilities
 │   ├── types.ts                    The domain model
 │   ├── validation.ts               Zod schemas + query parsing
 │   ├── search-core.ts              Scoring, fuzzy matching, highlighting
+│   ├── formula.ts                  Parse / compare molecular formulae (Hill order)
+│   ├── synthesis.ts                Route graph, where-used BFS, loop check, map layout
 │   ├── export.ts                   CSV / Excel / PDF writers, CSV parser
 │   ├── format.ts                   Dates, numbers, relative time
 │   ├── status.ts                   Product status → badge tone
@@ -90,6 +99,11 @@ src/
 │   └── cn.ts                       Tailwind-aware merge + VBDS cx
 ├── server/                         Server-only modules
 │   ├── repo/                       contract · memory · prisma · store · index
+│   ├── chem/                       RDKit loader, depiction, structure input, structure search
+│   ├── synthesis.ts                Route write rules shared by both adapters
+│   ├── synthesis-map.ts            Gathers upstream routes for the map
+│   ├── route-request.ts            Parses + canonicalises route request bodies
+│   ├── field-error.ts              throwFieldError() — server-decided 422s
 │   ├── auth.ts                     jose sessions, Auth.js-shaped API
 │   ├── rbac.ts                     Role → permission map
 │   ├── api.ts                      Response envelopes, error mapping
@@ -100,6 +114,8 @@ src/
 │   ├── astra.css                   App-level compositions
 │   └── globals.css                 Tailwind import, @theme bridge, reset
 └── middleware.ts                   Edge session presence gate
+
+scripts/check-structures.ts         Offline verification of every seed structure
 ```
 
 ---
@@ -195,6 +211,93 @@ needs replacing.
 
 ---
 
+## Chemistry engine
+
+Structures are handled by **RDKit.js** (`@rdkit/rdkit`, WASM, BSD-3) — on the **Node runtime
+only**. The browser never downloads the 7 MB binary: depictions arrive as SVG, and the form preview
+calls `/api/structure/depict`.
+
+### Loading
+
+`loadRDKit()` in `src/server/chem/rdkit.ts` initialises the module once per process and keeps the
+promise on `globalThis` (the same reason as the store: a module-level value reloads on every hot
+edit). A failed load isn't cached, so the next call retries. `@rdkit/rdkit` is listed in
+`serverExternalPackages` so it is required from `node_modules` at runtime and finds its `.wasm`
+next to its JS; `outputFileTracingIncludes` copies the binary into the standalone build.
+
+### Memory
+
+Every RDKit `Mol` lives on the WASM heap and must be freed with `.delete()`. Use `withMol()`,
+which frees in a `finally`; never call `get_mol` bare.
+
+### Canonical input
+
+`resolveStructureInput()` turns user SMILES into what is stored: RDKit canonical SMILES plus its
+InChIKey. It runs in the API layer, not in the Zod schema, because the schema also runs in the
+browser. The schema only checks shape (length, no stray spaces).
+
+### Depiction
+
+`depictStructure()` draws with no background, then rewrites every colour to `currentColor` and a
+sentinel highlight colour to `var(--vbds-primary-border)`. The structure therefore takes the
+surrounding text colour and themes in light and dark mode without new colour tokens. Bond length
+is capped relative to the box so a four-atom molecule isn't drawn giant beside a forty-atom one.
+
+### Structure search
+
+`runStructureSearch()` (`src/server/chem/structure-search.ts`) is shared by both adapters.
+Candidates come from the adapter's own `listProducts` — paged through, so the 200-row cap can't
+drop any — which means facet filters behave exactly as in text search.
+
+| Mode | Method |
+|---|---|
+| Substructure | `get_substruct_matches`; query read as SMILES first, then SMARTS. Score = share of the product's heavy atoms covered. All matches highlighted |
+| Similarity | Tanimoto on Morgan fingerprints (r = 2, 2048 bits), popcount over packed bytes. Fingerprints cached on `globalThis` by canonical SMILES |
+| Exact | Full InChIKey match; first-block match reported as *same connectivity* |
+
+At catalogue scale a query is 10–25 ms (50 000 substructure matches take ~100 ms).
+
+### Scaling structure search
+
+Every query compares every in-scope structure. For a large corpus, move matching into
+PostgreSQL with the **RDKit cartridge**:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS rdkit;
+ALTER TABLE products ADD COLUMN mol mol;
+UPDATE products SET mol = mol_from_smiles(smiles::cstring) WHERE smiles IS NOT NULL;
+CREATE INDEX products_mol_gist ON products USING gist (mol);
+-- substructure: WHERE mol @> 'c1ccccc1'::qmol
+-- keep `mol` in step with `smiles` on every product write
+```
+
+Prisma can't model the `mol` type; declare it `Unsupported("mol")` and query it with `$queryRaw`.
+
+---
+
+## Synthesis graph
+
+A synthesis route lists inputs; every input that is a catalogue product is an edge
+**input → output**. `src/lib/synthesis.ts` holds the graph logic, framework-free so both
+adapters and the UI share it.
+
+| Function | Does |
+|---|---|
+| `routeEdges()` | Live routes → edges. External substances are leaves, not edges |
+| `traceConsumers()` | Where-used. Breadth-first, so each consumer appears once at its **shortest** chain, with the intermediates in `via`. Never loops, even on cyclic data |
+| `findCycle()` | Would a new route close a loop? True when the output is already used, transitively, to make one of its inputs |
+| `buildSynthesisMap()` / `layoutSynthesisMap()` | The diagram: preferred routes upstream and where-used downstream, up to 3 steps each way; layered columns with one barycentre sweep to reduce crossings |
+
+**Write rules** live in `assertRouteWritable()` (`src/server/synthesis.ts`), called by both
+adapters: inputs must be active catalogue products, a product can't be its own input, and no route
+may form a loop. Each failure is a 422 pointed at the input row. When editing, the route being
+replaced is excluded from the edge set, so it is never mistaken for a loop with its old self.
+
+**Supply risk** is derived, not stored: a catalogue input's mapped supplier count from
+`product_company` — 0 = no supplier, 1 = single source.
+
+---
+
 ## Authentication
 
 `src/server/auth.ts` issues signed, HttpOnly JWT session cookies via `jose` (HS256, 8-hour
@@ -273,6 +376,9 @@ a runtime serialization error, not a type error, so it's worth knowing.
 | Debounced input | Search 200 ms · palette 140 ms, with `AbortController` to drop stale responses |
 | `useTransition` | Filter changes keep the current results visible while the next render streams |
 | Dynamic imports | ExcelJS, jsPDF and autotable load only when an export runs |
+| Server-side chemistry | RDKit's 7 MB WASM stays on the server; pages receive SVG |
+| Cached fingerprints | Morgan fingerprints held on `globalThis`, keyed by canonical SMILES |
+| Debounced structure input | Structure search 600 ms (a half-typed SMILES is usually invalid) |
 | Sticky headers, not virtualization | Page size caps at 100 rows; `@tanstack/react-virtual` is installed for when it doesn't |
 | `router.replace` for typing | One history entry per search, not one per keystroke |
 
@@ -285,12 +391,13 @@ First-load JS is ~103 kB shared; the heaviest route (Dashboard, with Recharts) i
 | Concern | Mitigation |
 |---|---|
 | **SQL injection** | Prisma parameterizes everything; no raw SQL in the codebase |
-| **XSS** | React escapes by default. The one `dangerouslySetInnerHTML` is the theme bootstrap script — a hard-coded constant with no interpolation |
+| **XSS** | React escapes by default. Two `dangerouslySetInnerHTML` uses: the theme bootstrap script (a hard-coded constant), and structure depictions in `StructureSvg`. Depictions are generated by RDKit on the server from a *parsed* molecule — RDKit draws labels as paths and never echoes input text (verified against CXSMILES label injection) — and `depictStructure()` refuses any output containing script-capable markup as a backstop |
 | **CSRF** | Mutations run through Server Actions (Next.js origin check) or `fetch` with `SameSite=Lax` cookies |
 | **CSV injection** | `escapeCsv()` prefixes values starting with `= + - @` with an apostrophe so Excel and Sheets don't evaluate them |
 | **Session theft** | HttpOnly, `SameSite=Lax`, `Secure` in production, 8-hour expiry, HS256-signed |
 | **Privilege escalation** | Every mutating route re-checks permissions server-side |
-| **Input validation** | Zod at every boundary, including CAS checksum validation |
+| **Input validation** | Zod at every boundary, including CAS checksum validation; structures re-parsed by RDKit on the server |
+| **Expensive chemistry input** | SMILES/SMARTS capped at 1000 characters and 150 query atoms |
 | **Clickjacking** | `X-Frame-Options: DENY` |
 | **MIME sniffing** | `X-Content-Type-Options: nosniff` |
 | **Referrer leakage** | `strict-origin-when-cross-origin` |
@@ -311,4 +418,8 @@ useless as a secret.
 - **Colour is never the only channel.** Capability cells pair a check/dash icon with a text
   label; status badges carry a dot and the status word; every chart has a legend and a table view.
 - Charts are `aria-hidden` with the table view as the screen-reader path.
+- Structure depictions are `role="img"` with the substance name as their label.
+- The synthesis map has an SVG `<title>`/`<desc>` summary, linked nodes reachable by keyboard,
+  and encodes external substances and supply risk in each node's text as well as its outline.
+  The Made from / Used in tables carry the same information.
 - `prefers-reduced-motion` collapses all durations to 1 ms.

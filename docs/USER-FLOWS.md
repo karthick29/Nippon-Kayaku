@@ -7,8 +7,9 @@ ASTRA is an internal tool for Nippon Kayaku business teams. Three recurring jobs
 1. **"Who can make this molecule?"** — sourcing, starting from a name or CAS number.
 2. **"What can this site actually do?"** — technical assessment of a supplier's capability.
 3. **"What does our portfolio look like?"** — management reporting.
+4. **"What is this made from, and what depends on it?"** — synthesis and supply risk.
 
-Every navigation decision below serves one of those three.
+Every navigation decision below serves one of those four.
 
 ---
 
@@ -20,7 +21,7 @@ ASTRA
 │   ├── Dashboard              KPIs, charts, latest products, activity
 │   └── Search Chemicals       The eMolecules-style entry point
 ├── Catalogue
-│   ├── Products               Table · Add · Details (5 tabs) · Edit
+│   ├── Products               Table · Add · Details (6 tabs, incl. Synthesis) · Edit
 │   └── Companies              Table · Profile (5 tabs)
 ├── Insight
 │   ├── Analytics              9 charts across portfolio, footprint, capability
@@ -65,6 +66,20 @@ than one per keystroke.
 **Result card** shows name, CAS, application, status and the companies that can supply it, with
 matched terms highlighted. Grid or list, user's choice, persisted in the URL.
 
+**Structure search** — the same page, switched from *Text* to a structure mode. The query is a
+SMILES string (from PubChem, or ChemDraw › Copy As › SMILES) and the mode lives in the URL like
+everything else, so a structure search is shareable too.
+
+| Mode | Answers | Result card shows |
+|---|---|---|
+| Substructure | "What contains an epoxide?" — SMILES or SMARTS fragment | The structure with every match highlighted; *Fragment covers N%* |
+| Similarity | "What's close to vanillin?" — adjustable minimum similarity | *N% similar* (Tanimoto) |
+| Exact | "Do we already carry this?" | *Exact match*, or *Same connectivity* for a stereoisomer |
+
+Example chips under the box are real hits in the catalogue. A bad query shows its reason in the
+page — "SMARTS patterns work in substructure search only" — rather than an error screen, and the
+summary line says how many in-scope products have no structure and so can't match.
+
 ---
 
 ## Flow 2 · Assess a supplier
@@ -95,10 +110,37 @@ site *can't* do is as decision-relevant as what it can.
 
 ---
 
-## Flow 3 · Add a product
+## Flow 3 · Trace a synthesis and its supply risk
 
 ```
-  Step 1 · Basic Information     name · CAS · formula · MW · status · application · category · synonyms · description
+  /products/[slug] ?tab=synthesis
+        ├── Supply-risk callout   only when the preferred route has a single- or no-supplier input
+        ├── Synthesis map         inputs ◄── product ──► products made from it (3 steps each way)
+        ├── Made from             one card per route: inputs, role, CAS, structure, supply
+        └── Used in               everything made from it, with the chain of intermediates
+```
+
+The question this tab answers is *"if this supplier fails, what stops?"* Supply comes from data
+ASTRA already holds — the suppliers mapped to each catalogue input — so the tab shows
+**Single source** or **No supplier** without anyone maintaining a separate risk register.
+
+- **The map is the overview; the tables are the detail.** Every node in the map links to that
+  product's own Synthesis tab, so a chain can be walked upstream or downstream by clicking.
+- **Inputs can be outside the catalogue.** Most real precursors aren't ASTRA products, so an input
+  is either a catalogue product (linked, with supply) or an external substance (name, CAS, SMILES;
+  supply *not tracked*). External nodes are dashed in the map.
+- **Routes carry a review status.** Seeded and newly entered routes start *Awaiting chemist review*;
+  a chemist marks them reviewed in the editor.
+- **Analysts and above edit routes** in a dialog: add rows, switch each between catalogue and
+  external, set role and quantity. A route that would loop — using a product already made from this
+  one — is refused with the reason under the exact field.
+
+---
+
+## Flow 4 · Add a product
+
+```
+  Step 1 · Basic Information     name · CAS · formula · MW · structure (SMILES) · status · application · category · synonyms · description
         ▼ (validates before advancing)
   Step 2 · Company Mapping       filter panel → attach companies → per-link codes, strength, presentation, remarks
         ▼
@@ -115,10 +157,14 @@ site *can't* do is as decision-relevant as what it can.
   this form could do.
 - **Server-side field errors map back onto the form** and jump the user to the step that owns
   the bad field.
+- **The structure is optional and previews live.** Paste a SMILES and the drawing, formula and
+  weight appear beside it; if they disagree with the formula already typed, one click replaces it
+  with the structure's values. The server stores the canonical form, so the same molecule is
+  always the same string.
 
 ---
 
-## Flow 4 · Bulk operations
+## Flow 5 · Bulk operations
 
 ```
   /products ──► select rows ──► bulk bar appears
@@ -132,7 +178,7 @@ worse than one that refuses to start, so the preview is not skippable.
 
 ---
 
-## Flow 5 · Report and export
+## Flow 6 · Report and export
 
 ```
   /reports ──► pick one of 6 ──► preview ──► CSV │ Excel │ PDF
@@ -150,7 +196,7 @@ landscape orientation past six columns.
 
 ---
 
-## Flow 6 · Administration
+## Flow 7 · Administration
 
 ```
   /settings
@@ -175,6 +221,7 @@ cannot drift from what is actually enforced.
 |---|---|---|
 | Search query, filters, sort, view | URL | Shareable, bookmarkable, survives back |
 | Active tab on detail pages | URL (`?tab=`) | A link to the Companies tab is a useful thing to send someone |
+| Search mode, structure query, similarity threshold | URL (`mode`, `q`, `threshold`) | A structure search is as shareable as a text one |
 | Table sort, column widths, visibility, selection | Component state | Per-session view preferences, not worth a URL |
 | Theme, density | `localStorage` + `data-*` on `<html>` | Applied before first paint; no flash |
 | Recent searches | `localStorage` | Half-typed queries are not something the platform needs to store |

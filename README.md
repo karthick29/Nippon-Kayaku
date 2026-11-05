@@ -2,8 +2,9 @@
 
 **Chemical intelligence platform for Nippon Kayaku.**
 
-Search chemicals by name, CAS number, synonym, formula or manufacturing capability, and manage
-products, suppliers and plant capacity in one place. Internal business-team tool — not a storefront.
+Search chemicals by name, CAS number, synonym, formula, manufacturing capability or **chemical
+structure**; trace how each product is made and what depends on it; and manage products, suppliers
+and plant capacity in one place. Internal business-team tool — not a storefront.
 
 Built on the **VBDS v2.0 design system** (`~/MyStuff/designsystem`), rebranded to ASTRA and
 retuned for desktop density. See [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) for exactly what
@@ -20,7 +21,8 @@ npm run dev          # http://localhost:3000
 
 No database, no Docker, no environment file needed. The app boots against a deterministic
 in-memory corpus: **50 products · 22 companies · 175 supply links · 15 capability types ·
-10 applications · 10 locations · 5 categories · 7 users**.
+10 applications · 10 locations · 5 categories · 7 users · 49 chemical structures · 9 synthesis
+routes**.
 
 ### Signing in
 
@@ -45,6 +47,7 @@ in `src/server/auth.ts`, not a security control.
 | `npm run build` | Production build |
 | `npm run start` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` — passes with zero errors |
+| `npm run check:structures` | Verifies every seed structure against its formula, weight and InChIKey, and every route input's SMILES and CAS — run after editing seed chemistry |
 | `npm run lint` | Next.js lint |
 | `npm run db:generate` | Generate the Prisma client |
 | `npm run db:push` | Push `schema.prisma` to PostgreSQL |
@@ -78,10 +81,10 @@ adapter rather than failing to boot.
 | Route | What it is |
 |---|---|
 | `/dashboard` | Executive overview — 6 KPI tiles, 4 charts, latest products, activity feed, floating search |
-| `/search` | eMolecules-style search — hero input, faceted filters, grid/list, match highlighting |
+| `/search` | eMolecules-style search — hero input, faceted filters, grid/list, match highlighting; **substructure, similarity and exact-structure** modes with matched atoms highlighted |
 | `/products` | Enterprise data table — sort, resize, column visibility, bulk edit/delete, CSV/Excel export, CSV import |
-| `/products/new` | Three-step wizard — Basic Information → Company Mapping → Review, with autosaving draft |
-| `/products/[slug]` | Product profile — Overview · **Companies** · Documents · History · Analytics |
+| `/products/new` | Three-step wizard — Basic Information → Company Mapping → Review, with autosaving draft and a live structure preview |
+| `/products/[slug]` | Product profile — Overview (with structure) · **Companies** · **Synthesis** · Documents · History · Analytics |
 | `/products/[slug]/edit` | Single-form editor with field-level audit diff |
 | `/companies` | Company table with staffing and capability counts |
 | `/companies/[slug]` | Company profile — Overview · Equipment · Products · Capabilities · Analytics |
@@ -93,13 +96,17 @@ The **Companies tab** on a product is the centre of gravity: 21 columns covering
 every tracked capability, strength, presentation, capital and product codes — with a sticky
 company column, per-column resize, and an export that mirrors exactly what's on screen.
 
+The **Synthesis tab** answers *"what is this made from, and what stops if a supplier fails?"* — a
+map of inputs and downstream products, route cards with each input's supply (**Single source**,
+**No supplier**), and a where-used list that follows chains through intermediates.
+
 ---
 
 ## Stack
 
 React 19 · Next.js 15 (App Router) · TypeScript (strict) · Tailwind CSS v4 · Radix UI ·
 TanStack Table · TanStack Query · React Hook Form · Zod · Framer Motion · Recharts ·
-Lucide · Prisma · PostgreSQL · jose
+Lucide · Prisma · PostgreSQL · jose · RDKit.js (server-side, WASM)
 
 ---
 
@@ -141,3 +148,12 @@ These are deliberate scoping decisions, not oversights:
   seeded and read-only in the interface. Products have the full create/edit/delete UI.
 - **Import accepts CSV**, including Excel's "Save as CSV". Native `.xlsx` parsing on import is not
   wired up; export produces real `.xlsx` via ExcelJS.
+- **Seeded synthesis routes are unreviewed.** The nine routes summarise established literature
+  processes and are marked *Awaiting chemist review* until a chemist confirms them.
+- **Structure queries are typed, not drawn.** Search and the product forms take SMILES (and SMARTS
+  for substructure search); there is no drawing editor.
+- **Structure search compares every structure in memory** — milliseconds for this catalogue. A
+  large corpus should move matching into PostgreSQL with the RDKit cartridge; see
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#scaling-structure-search).
+- **Where-used is only as complete as the routes.** It follows recorded routes; a product with no
+  recorded route contributes no edges.
