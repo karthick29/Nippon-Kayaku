@@ -82,7 +82,7 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  role          Role            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  role          Role          @relation(fields: [roleId], references: [id], onDelete: Restrict)
   auditLogs     AuditLog[]
   activityLogs  ActivityLog[]
   documents     Document[]
@@ -187,34 +187,38 @@ enum ProductStatus {
 }
 
 model Product {
-  id                String        @id @default(cuid())
-  name              String
-  slug              String        @unique
+  id               String        @id @default(cuid())
+  name             String
+  slug             String        @unique
   /// CAS Registry Number, stored canonically as 000000-00-0.
-  casNumber         String        @map("cas_number")
+  casNumber        String        @map("cas_number")
   /// RDKit canonical SMILES (active substance for solutions). Set by the API, never raw input.
-  smiles            String?
+  smiles           String?
   /// Standard InChIKey derived from smiles. Not unique: a pure substance and its
   /// solution are distinct products with the same structure.
-  inchiKey          String?       @map("inchi_key")
-  molecularFormula  String?       @map("molecular_formula")
-  molecularWeight   Decimal?      @map("molecular_weight") @db.Decimal(10, 4)
-  applicationId     String        @map("application_id")
-  categoryId        String        @map("category_id")
-  status            ProductStatus @default(DEVELOPMENT)
-  description       String?
+  inchiKey         String?       @map("inchi_key")
+  molecularFormula String?       @map("molecular_formula")
+  molecularWeight  Decimal?      @map("molecular_weight") @db.Decimal(10, 4)
+  applicationId    String        @map("application_id")
+  categoryId       String        @map("category_id")
+  status           ProductStatus @default(DEVELOPMENT)
+  description      String?
   /// Trade names and synonyms — included in the search index.
-  synonyms          String[]      @default([])
-  createdById       String?       @map("created_by_id")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-  deletedAt         DateTime?     @map("deleted_at")
+  synonyms         String[]      @default([])
+  createdById      String?       @map("created_by_id")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  deletedAt        DateTime?     @map("deleted_at")
 
-  application Application     @relation(fields: [applicationId], references: [id], onDelete: Restrict)
-  category    ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  application Application      @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  category    ProductCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   companies   ProductCompany[]
   documents   Document[]
   versions    ProductVersion[]
+  /// Routes that make this product.
+  routes      SynthesisRoute[]
+  /// Route inputs where this product is consumed — the where-used edges.
+  usedIn      RouteInput[]     @relation("RouteInputProduct")
 
   @@unique([casNumber, deletedAt], name: "unique_active_cas")
   @@index([applicationId])
@@ -242,6 +246,68 @@ model ProductVersion {
   @@unique([productId, version])
   @@index([productId])
   @@map("product_versions")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Synthesis — how products are made, and what they are used to make
+// ─────────────────────────────────────────────────────────────────────
+
+enum RouteInputRole {
+  BUILDING_BLOCK
+  REAGENT
+  CATALYST
+  SOLVENT
+}
+
+enum RouteReviewStatus {
+  UNREVIEWED
+  REVIEWED
+}
+
+/// One way to make a product. At most one preferred route per product
+/// (enforced by the repository when a route is marked preferred).
+model SynthesisRoute {
+  id           String            @id @default(cuid())
+  productId    String            @map("product_id")
+  name         String
+  isPreferred  Boolean           @default(false) @map("is_preferred")
+  reviewStatus RouteReviewStatus @default(UNREVIEWED) @map("review_status")
+  notes        String?
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  deletedAt    DateTime?         @map("deleted_at")
+
+  product Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inputs  RouteInput[]
+
+  @@index([productId])
+  @@index([deletedAt])
+  @@map("synthesis_routes")
+}
+
+/// An input to a route: a catalogue product (product_id) OR an external
+/// substance (external_*). Exactly one side is set — enforced by the API
+/// schema; add a CHECK constraint in a migration if writing outside it.
+model RouteInput {
+  id             String         @id @default(cuid())
+  routeId        String         @map("route_id")
+  role           RouteInputRole
+  sortOrder      Int            @default(0) @map("sort_order")
+  productId      String?        @map("product_id")
+  externalName   String?        @map("external_name")
+  externalCas    String?        @map("external_cas")
+  /// RDKit canonical SMILES, set by the API.
+  externalSmiles String?        @map("external_smiles")
+  quantity       String?
+
+  /// Inputs belong to their route: replacing a route's inputs deletes the old rows.
+  route   SynthesisRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  /// A product in use by a route can't be hard-deleted (products soft-delete anyway).
+  product Product?       @relation("RouteInputProduct", fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([routeId])
+  @@index([productId])
+  @@map("route_inputs")
 }
 
 model Company {

@@ -15,17 +15,25 @@ import type {
   ProductQuery,
   ProductRow,
   ProductStatus,
+  ProductSummary,
   Role,
+  RouteInputRole,
+  RouteReviewStatus,
   SearchHit,
   StructureQuery,
   StructureSearchResult,
+  SynthesisRoute,
+  SynthesisRouteView,
   User,
+  WhereUsedEntry,
 } from '@/lib/types';
+import { routeEdges, traceConsumers, type RouteEdge } from '@/lib/synthesis';
+import { assertRouteWritable, routeChanges } from '@/server/synthesis';
 import { runStructureSearch } from '@/server/chem/structure-search';
 import { bestMatch, scoreMatch } from '@/lib/search-core';
 import { slugify } from '@/lib/slug';
 import { APPLICATIONS, EQUIPMENT_MASTER, LOCATIONS } from '@/data/masters';
-import type { Actor, CompanyInput, ProductInput, Repository } from './contract';
+import type { Actor, CompanyInput, ProductInput, Repository, RouteWriteInput } from './contract';
 
 /* ════════════════════════════════════════════════════════════════════
    PostgreSQL adapter.
@@ -67,6 +75,8 @@ interface PrismaLike {
   user: Delegate;
   auditLog: Delegate;
   document: Delegate;
+  synthesisRoute: Delegate;
+  routeInput: Delegate;
   $disconnect: () => Promise<void>;
 }
 
@@ -104,6 +114,17 @@ const FROM_DB: Record<string, ProductStatus> = {
   DISCONTINUED: 'Discontinued',
 };
 
+const ROLE_TO_DB: Record<RouteInputRole, string> = {
+  'building-block': 'BUILDING_BLOCK',
+  reagent: 'REAGENT',
+  catalyst: 'CATALYST',
+  solvent: 'SOLVENT',
+};
+const ROLE_FROM_DB: Record<string, RouteInputRole> = Object.fromEntries(
+  Object.entries(ROLE_TO_DB).map(([app, db]) => [db, app as RouteInputRole]),
+);
+const REVIEW_TO_DB: Record<RouteReviewStatus, string> = { unreviewed: 'UNREVIEWED', reviewed: 'REVIEWED' };
+
 /* ── Row mapping ────────────────────────────────────────────────── */
 
 const PRODUCT_INCLUDE = {
@@ -111,6 +132,91 @@ const PRODUCT_INCLUDE = {
   category: true,
   companies: { include: { company: { include: { location: true } } } },
 } as const;
+
+/** Enough of a product to render it inside a route or where-used list. */
+const SUMMARY_INCLUDE = { companies: { include: { company: true } } } as const;
+
+const ROUTE_INCLUDE = {
+  inputs: { orderBy: { sortOrder: 'asc' }, include: { product: { include: SUMMARY_INCLUDE } } },
+} as const;
+
+function mapSummary(row: any): ProductSummary {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    casNumber: row.casNumber,
+    smiles: row.smiles ?? undefined,
+    status: FROM_DB[row.status] ?? 'Development',
+    companyCount: (row.companies ?? []).filter((link: any) => link.company && !link.company.deletedAt).length,
+    deleted: Boolean(row.deletedAt),
+  };
+}
+
+function mapRoute(row: any): SynthesisRoute {
+  return {
+    id: row.id,
+    productId: row.productId,
+    name: row.name,
+    isPreferred: row.isPreferred,
+    reviewStatus: row.reviewStatus === 'REVIEWED' ? 'reviewed' : 'unreviewed',
+    notes: row.notes ?? undefined,
+    inputs: (row.inputs ?? []).map((input: any) => ({
+      id: input.id,
+      routeId: input.routeId,
+      role: ROLE_FROM_DB[input.role] ?? 'building-block',
+      sortOrder: input.sortOrder,
+      productId: input.productId ?? undefined,
+      externalName: input.externalName ?? undefined,
+      externalCas: input.externalCas ?? undefined,
+      externalSmiles: input.externalSmiles ?? undefined,
+      quantity: input.quantity ?? undefined,
+    })),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+  };
+}
+
+function mapRouteView(row: any): SynthesisRouteView {
+  const route = mapRoute(row);
+  return {
+    ...route,
+    inputs: route.inputs.map((input, index) => {
+      const product = row.inputs[index]?.product;
+      return product ? { ...input, product: mapSummary(product) } : input;
+    }),
+  };
+}
+
+function toInputRows(inputs: RouteWriteInput['inputs']) {
+  return inputs.map((input, index) => ({
+    role: ROLE_TO_DB[input.role],
+    sortOrder: index,
+    productId: input.productId ?? null,
+    externalName: input.externalName ?? null,
+    externalCas: input.externalCas ?? null,
+    externalSmiles: input.externalSmiles ?? null,
+    quantity: input.quantity ?? null,
+  }));
+}
+
+/** Live routes as graph edges, optionally without the route being edited. */
+async function loadEdges(excludeRouteId?: string): Promise<RouteEdge[]> {
+  const rows = await client().synthesisRoute.findMany({
+    where: { deletedAt: null, ...(excludeRouteId ? { id: { not: excludeRouteId } } : {}) },
+    include: { inputs: true },
+  });
+  return routeEdges(rows.map(mapRoute));
+}
+
+/** Names of the active catalogue products among `ids` — what assertRouteWritable needs, fetched up front. */
+async function activeNames(ids: Array<string | undefined>): Promise<Map<string, string>> {
+  const wanted = ids.filter((id): id is string => Boolean(id));
+  if (!wanted.length) return new Map();
+  const rows = await client().product.findMany({ where: { id: { in: wanted }, deletedAt: null }, select: { id: true, name: true } });
+  return new Map(rows.map((r: any) => [r.id, r.name]));
+}
 
 const COMPANY_INCLUDE = {
   location: true,
@@ -632,6 +738,148 @@ export const prismaRepo: Repository = {
     }
 
     return result.count;
+  },
+
+  async listRoutes(productId: string): Promise<SynthesisRouteView[]> {
+    const rows = await client().synthesisRoute.findMany({
+      where: { productId, deletedAt: null },
+      include: ROUTE_INCLUDE,
+      orderBy: [{ isPreferred: 'desc' }, { name: 'asc' }],
+    });
+    return rows.map(mapRouteView);
+  },
+
+  async getWhereUsed(productId: string, opts): Promise<WhereUsedEntry[]> {
+    const traced = traceConsumers(productId, await loadEdges(), opts?.maxDepth ?? 6);
+    if (!traced.length) return [];
+    const ids = [...new Set(traced.flatMap((c) => [c.productId, ...c.via]))];
+    const rows = await client().product.findMany({ where: { id: { in: ids } }, include: SUMMARY_INCLUDE });
+    const byId = new Map(rows.map((r: any) => [r.id, r]));
+
+    return traced.flatMap((consumer) => {
+      const product: any = byId.get(consumer.productId);
+      if (!product || product.deletedAt) return [];
+      return [
+        {
+          product: mapSummary(product),
+          depth: consumer.depth,
+          routeId: consumer.routeId,
+          routeName: consumer.routeName,
+          role: consumer.role,
+          via: consumer.via.flatMap((id) => {
+            const step: any = byId.get(id);
+            return step ? [{ id: step.id, name: step.name, slug: step.slug }] : [];
+          }),
+        },
+      ];
+    });
+  },
+
+  async createRoute(productId: string, input: RouteWriteInput, actor: Actor): Promise<SynthesisRouteView | null> {
+    const db = client();
+    const product = await db.product.findFirst({ where: { id: productId, deletedAt: null } });
+    if (!product) return null;
+
+    const names = await activeNames(input.inputs.map((i) => i.productId));
+    assertRouteWritable({ outputId: productId, input, edges: await loadEdges(), activeProductName: (id) => names.get(id) });
+
+    if (input.isPreferred) {
+      await db.synthesisRoute.updateMany({ where: { productId, deletedAt: null }, data: { isPreferred: false } });
+    }
+    const created = await db.synthesisRoute.create({
+      data: {
+        productId,
+        name: input.name,
+        isPreferred: input.isPreferred,
+        reviewStatus: REVIEW_TO_DB[input.reviewStatus],
+        notes: input.notes || null,
+        inputs: { create: toInputRows(input.inputs) },
+      },
+      include: ROUTE_INCLUDE,
+    });
+
+    await prismaRepo.recordAudit({
+      action: 'CREATE',
+      entity: 'product',
+      entityId: productId,
+      entityLabel: product.name,
+      actorId: actor.id,
+      actorName: actor.name,
+      summary: `${actor.name} added synthesis route “${input.name}” to ${product.name}`,
+    });
+    return mapRouteView(created);
+  },
+
+  async updateRoute(routeId: string, input: RouteWriteInput, actor: Actor): Promise<SynthesisRouteView | null> {
+    const db = client();
+    const existing = await db.synthesisRoute.findFirst({
+      where: { id: routeId, deletedAt: null },
+      include: { ...ROUTE_INCLUDE, product: true },
+    });
+    if (!existing || existing.product?.deletedAt) return null;
+
+    const names = await activeNames(input.inputs.map((i) => i.productId));
+    assertRouteWritable({
+      outputId: existing.productId,
+      input,
+      edges: await loadEdges(routeId),
+      activeProductName: (id) => names.get(id),
+    });
+
+    // Old inputs' names come from the include; new ones from the lookup above.
+    const oldNames = new Map<string, string>(
+      existing.inputs.filter((i: any) => i.product).map((i: any) => [i.product.id, i.product.name]),
+    );
+    const changes = routeChanges(mapRoute(existing), input, (id) => names.get(id) ?? oldNames.get(id));
+
+    if (input.isPreferred) {
+      await db.synthesisRoute.updateMany({
+        where: { productId: existing.productId, deletedAt: null, id: { not: routeId } },
+        data: { isPreferred: false },
+      });
+    }
+    const updated = await db.synthesisRoute.update({
+      where: { id: routeId },
+      data: {
+        name: input.name,
+        isPreferred: input.isPreferred,
+        reviewStatus: REVIEW_TO_DB[input.reviewStatus],
+        notes: input.notes || null,
+        // Replace wholesale in one statement — no window with a half-written route.
+        inputs: { deleteMany: {}, create: toInputRows(input.inputs) },
+      },
+      include: ROUTE_INCLUDE,
+    });
+
+    await prismaRepo.recordAudit({
+      action: 'UPDATE',
+      entity: 'product',
+      entityId: existing.productId,
+      entityLabel: existing.product.name,
+      actorId: actor.id,
+      actorName: actor.name,
+      summary: `${actor.name} updated synthesis route “${input.name}” on ${existing.product.name}`,
+      changes,
+    });
+    return mapRouteView(updated);
+  },
+
+  async deleteRoute(routeId: string, actor: Actor): Promise<boolean> {
+    const db = client();
+    const existing = await db.synthesisRoute.findFirst({ where: { id: routeId, deletedAt: null }, include: { product: true } });
+    if (!existing) return false;
+    await db.synthesisRoute.update({ where: { id: routeId }, data: { deletedAt: new Date(), isPreferred: false } });
+
+    await prismaRepo.recordAudit({
+      action: 'DELETE',
+      entity: 'product',
+      entityId: existing.productId,
+      entityLabel: existing.product?.name ?? 'Unknown product',
+      actorId: actor.id,
+      actorName: actor.name,
+      summary: `${actor.name} removed synthesis route “${existing.name}” from ${existing.product?.name ?? 'a product'}`,
+    });
+    return true;
   },
 
   async structureSearch(query: StructureQuery): Promise<StructureSearchResult> {

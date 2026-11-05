@@ -211,6 +211,86 @@ export interface DocumentRecord {
   createdAt: string;
 }
 
+/* ── Synthesis ──────────────────────────────────────────────────── */
+
+export type RouteInputRole = 'building-block' | 'reagent' | 'catalyst' | 'solvent';
+
+export const ROUTE_INPUT_ROLES: RouteInputRole[] = ['building-block', 'reagent', 'catalyst', 'solvent'];
+
+/** Seeded or newly entered routes start unreviewed; a chemist marks them reviewed. */
+export type RouteReviewStatus = 'unreviewed' | 'reviewed';
+
+/**
+ * One input to a synthesis route. Either a catalogue product
+ * (`productId`) or an external substance described by name / CAS /
+ * SMILES — most real precursors are not ASTRA products.
+ */
+export interface RouteInput {
+  id: string;
+  routeId: string;
+  role: RouteInputRole;
+  sortOrder: number;
+  productId?: string;
+  externalName?: string;
+  externalCas?: string;
+  /** Canonical SMILES, set by the API like Product.smiles. */
+  externalSmiles?: string;
+  /** Free text, e.g. "1.05 eq". */
+  quantity?: string;
+}
+
+/** synthesis_routes — one way to make a product. A product may have several. */
+export interface SynthesisRoute {
+  id: string;
+  /** The product this route makes. */
+  productId: string;
+  name: string;
+  /** At most one preferred route per product. */
+  isPreferred: boolean;
+  reviewStatus: RouteReviewStatus;
+  notes?: string;
+  inputs: RouteInput[];
+  createdAt: string;
+  updatedAt: string;
+  /** Soft delete — business records are never hard-deleted. */
+  deletedAt?: string | null;
+}
+
+/** A catalogue product as shown inside a route or a where-used list. */
+export interface ProductSummary {
+  id: string;
+  name: string;
+  slug: string;
+  casNumber: string;
+  smiles?: string;
+  status: ProductStatus;
+  /** Suppliers mapped to it — the single-source risk signal. */
+  companyCount: number;
+  /** Soft-deleted since the route was recorded. */
+  deleted: boolean;
+}
+
+export interface RouteInputView extends RouteInput {
+  product?: ProductSummary;
+}
+
+export interface SynthesisRouteView extends Omit<SynthesisRoute, 'inputs'> {
+  inputs: RouteInputView[];
+}
+
+/** A product made, directly or through intermediates, from the queried product. */
+export interface WhereUsedEntry {
+  product: ProductSummary;
+  /** 1 = a route for this product uses the queried product directly. */
+  depth: number;
+  routeId: string;
+  routeName: string;
+  /** Role of the nearest link in the chain (the input used by this product's route). */
+  role: RouteInputRole;
+  /** Intermediate products from the queried product to this one, in order. Empty at depth 1. */
+  via: Array<{ id: string; name: string; slug: string }>;
+}
+
 /* ── View models ────────────────────────────────────────────────── */
 
 /** A product joined with its company availability — the list/table row. */

@@ -10,7 +10,7 @@ import { PrismaClient } from '@prisma/client';
 import { buildDataset } from '../src/data/dataset';
 import { APPLICATIONS, CATEGORIES, EQUIPMENT_MASTER, LOCATIONS } from '../src/data/masters';
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_PERMISSIONS } from '../src/server/rbac';
-import type { Permission, ProductStatus, Role } from '../src/lib/types';
+import type { Permission, ProductStatus, Role, RouteInputRole } from '../src/lib/types';
 
 const prisma = new PrismaClient();
 
@@ -20,6 +20,14 @@ const prisma = new PrismaClient();
  * before `prisma generate` has ever been run.
  */
 type PrismaProductStatus = 'COMMERCIAL' | 'DEVELOPMENT' | 'PILOT' | 'DISCONTINUED';
+type PrismaRouteInputRole = 'BUILDING_BLOCK' | 'REAGENT' | 'CATALYST' | 'SOLVENT';
+
+const ROLE_MAP: Record<RouteInputRole, PrismaRouteInputRole> = {
+  'building-block': 'BUILDING_BLOCK',
+  reagent: 'REAGENT',
+  catalyst: 'CATALYST',
+  solvent: 'SOLVENT',
+};
 
 const STATUS_MAP: Record<ProductStatus, PrismaProductStatus> = {
   Commercial: 'COMMERCIAL',
@@ -41,6 +49,8 @@ async function main() {
     prisma.productVersion.deleteMany(),
     prisma.productCompany.deleteMany(),
     prisma.companyEquipment.deleteMany(),
+    prisma.routeInput.deleteMany(),
+    prisma.synthesisRoute.deleteMany(),
     prisma.product.deleteMany(),
     prisma.company.deleteMany(),
     prisma.equipmentMaster.deleteMany(),
@@ -236,6 +246,31 @@ async function main() {
     })),
     skipDuplicates: true,
   });
+
+  console.log(`› Seeding ${data.routes.length} synthesis routes…`);
+  for (const route of data.routes) {
+    await prisma.synthesisRoute.create({
+      data: {
+        productId: productBySeedId.get(route.productId)!,
+        name: route.name,
+        isPreferred: route.isPreferred,
+        reviewStatus: route.reviewStatus === 'reviewed' ? 'REVIEWED' : 'UNREVIEWED',
+        notes: route.notes ?? null,
+        createdAt: new Date(route.createdAt),
+        inputs: {
+          create: route.inputs.map((input) => ({
+            role: ROLE_MAP[input.role],
+            sortOrder: input.sortOrder,
+            productId: input.productId ? productBySeedId.get(input.productId)! : null,
+            externalName: input.externalName ?? null,
+            externalCas: input.externalCas ?? null,
+            externalSmiles: input.externalSmiles ?? null,
+            quantity: input.quantity ?? null,
+          })),
+        },
+      },
+    });
+  }
 
   console.log(`› Seeding ${data.documents.length} documents…`);
   await prisma.document.createMany({

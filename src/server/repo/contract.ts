@@ -12,10 +12,14 @@ import type {
   ProductCompanyRow,
   ProductQuery,
   ProductRow,
+  RouteInput,
+  RouteReviewStatus,
   SearchHit,
   StructureQuery,
   StructureSearchResult,
+  SynthesisRouteView,
   User,
+  WhereUsedEntry,
 } from '@/lib/types';
 
 /* ════════════════════════════════════════════════════════════════════
@@ -67,6 +71,16 @@ export interface CompanyInput {
   contactEmail?: string;
 }
 
+/** What a route write carries. Inputs are replaced wholesale on update. */
+export interface RouteWriteInput {
+  name: string;
+  isPreferred: boolean;
+  reviewStatus: RouteReviewStatus;
+  notes?: string;
+  /** External SMILES already canonicalised by the API layer. */
+  inputs: Array<Omit<RouteInput, 'id' | 'routeId' | 'sortOrder'>>;
+}
+
 export interface Actor {
   id: string;
   name: string;
@@ -98,6 +112,20 @@ export interface Repository {
    * Throws ZodError (→ 422) when the query doesn't parse for its mode.
    */
   structureSearch(query: StructureQuery): Promise<StructureSearchResult>;
+
+  /* Synthesis */
+  /** Routes that make this product, preferred first. */
+  listRoutes(productId: string): Promise<SynthesisRouteView[]>;
+  /** Products made from this one, directly or through intermediates; shortest chain per product. */
+  getWhereUsed(productId: string, opts?: { maxDepth?: number }): Promise<WhereUsedEntry[]>;
+  /**
+   * Null if the product doesn't exist. Throws a field error (→ 422) for an
+   * input that isn't an active catalogue product, or a route that would
+   * form a loop. Setting isPreferred clears it on the product's other routes.
+   */
+  createRoute(productId: string, input: RouteWriteInput, actor: Actor): Promise<SynthesisRouteView | null>;
+  updateRoute(routeId: string, input: RouteWriteInput, actor: Actor): Promise<SynthesisRouteView | null>;
+  deleteRoute(routeId: string, actor: Actor): Promise<boolean>;
 
   /* Analytics */
   dashboard(): Promise<DashboardMetrics>;

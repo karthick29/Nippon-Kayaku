@@ -14,11 +14,18 @@ import type {
   ProductCompanyRow,
   ProductQuery,
   ProductRow,
+  ProductSummary,
+  RouteInput,
   SearchHit,
   StructureQuery,
   StructureSearchResult,
+  SynthesisRoute,
+  SynthesisRouteView,
   User,
+  WhereUsedEntry,
 } from '@/lib/types';
+import { routeEdges, traceConsumers } from '@/lib/synthesis';
+import { assertRouteWritable, routeChanges } from '@/server/synthesis';
 import { runStructureSearch } from '@/server/chem/structure-search';
 import { bestMatch, scoreCas, scoreMatch } from '@/lib/search-core';
 import { slugify } from '@/lib/slug';
@@ -33,7 +40,7 @@ import {
 } from '@/data/masters';
 import { SEED_NOW } from '@/data/dataset';
 import { getStore } from './store';
-import type { Actor, CompanyInput, ProductInput, Repository } from './contract';
+import type { Actor, CompanyInput, ProductInput, Repository, RouteWriteInput } from './contract';
 
 /* ════════════════════════════════════════════════════════════════════
    In-memory repository adapter.
@@ -100,6 +107,52 @@ function companyIdsWithEquipment(keys: EquipmentKey[]): Set<string> {
     if (has) result.add(company.id);
   }
   return result;
+}
+
+/* ── Synthesis helpers ──────────────────────────────────────────── */
+
+function toSummary(product: Product): ProductSummary {
+  const store = getStore();
+  const companyIds = new Set(store.links.filter((l) => l.productId === product.id).map((l) => l.companyId));
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    casNumber: product.casNumber,
+    smiles: product.smiles,
+    status: product.status,
+    companyCount: live(store.companies).filter((c) => companyIds.has(c.id)).length,
+    deleted: Boolean(product.deletedAt),
+  };
+}
+
+function toRouteView(route: SynthesisRoute): SynthesisRouteView {
+  const store = getStore();
+  return {
+    ...route,
+    inputs: [...route.inputs]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((input) => {
+        // Deleted products still resolve: the route recorded them, and the UI flags it.
+        const product = input.productId ? store.products.find((p) => p.id === input.productId) : undefined;
+        return product ? { ...input, product: toSummary(product) } : { ...input };
+      }),
+  };
+}
+
+function toRouteInputs(routeId: string, inputs: RouteWriteInput['inputs']): RouteInput[] {
+  return inputs.map((input, index) => ({ ...input, id: `${routeId}-in-${index + 1}`, routeId, sortOrder: index }));
+}
+
+const byPreferenceThenName = (a: SynthesisRoute, b: SynthesisRoute) =>
+  Number(b.isPreferred) - Number(a.isPreferred) || a.name.localeCompare(b.name);
+
+function activeProductName(id: string): string | undefined {
+  return getStore().products.find((p) => p.id === id && !p.deletedAt)?.name;
+}
+
+function anyProductName(id: string): string | undefined {
+  return getStore().products.find((p) => p.id === id)?.name;
 }
 
 /* ── Repository ─────────────────────────────────────────────────── */
@@ -525,6 +578,133 @@ export const memoryRepo: Repository = {
     }
 
     return count;
+  },
+
+  /* ── Synthesis ────────────────────────────────────────────────── */
+
+  async listRoutes(productId: string): Promise<SynthesisRouteView[]> {
+    return live(getStore().routes)
+      .filter((r) => r.productId === productId)
+      .sort(byPreferenceThenName)
+      .map(toRouteView);
+  },
+
+  async getWhereUsed(productId: string, opts): Promise<WhereUsedEntry[]> {
+    const store = getStore();
+    const byId = new Map(store.products.map((p) => [p.id, p]));
+    return traceConsumers(productId, routeEdges(live(store.routes)), opts?.maxDepth ?? 6).flatMap((consumer) => {
+      const product = byId.get(consumer.productId);
+      if (!product || product.deletedAt) return [];
+      return [
+        {
+          product: toSummary(product),
+          depth: consumer.depth,
+          routeId: consumer.routeId,
+          routeName: consumer.routeName,
+          role: consumer.role,
+          via: consumer.via.flatMap((id) => {
+            const step = byId.get(id);
+            return step ? [{ id: step.id, name: step.name, slug: step.slug }] : [];
+          }),
+        },
+      ];
+    });
+  },
+
+  async createRoute(productId: string, input: RouteWriteInput, actor: Actor): Promise<SynthesisRouteView | null> {
+    const store = getStore();
+    const product = store.products.find((p) => p.id === productId && !p.deletedAt);
+    if (!product) return null;
+
+    assertRouteWritable({ outputId: productId, input, edges: routeEdges(live(store.routes)), activeProductName });
+
+    const id = `rte-${String(store.routes.length + 1).padStart(3, '0')}-${Date.now().toString(36)}`;
+    const timestamp = nowIso();
+    if (input.isPreferred) {
+      for (const r of live(store.routes)) if (r.productId === productId) r.isPreferred = false;
+    }
+    const route: SynthesisRoute = {
+      id,
+      productId,
+      name: input.name,
+      isPreferred: input.isPreferred,
+      reviewStatus: input.reviewStatus,
+      notes: input.notes || undefined,
+      inputs: toRouteInputs(id, input.inputs),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    store.routes.push(route);
+
+    await memoryRepo.recordAudit({
+      action: 'CREATE',
+      entity: 'product',
+      entityId: productId,
+      entityLabel: product.name,
+      actorId: actor.id,
+      actorName: actor.name,
+      summary: `${actor.name} added synthesis route “${route.name}” to ${product.name}`,
+    });
+    return toRouteView(route);
+  },
+
+  async updateRoute(routeId: string, input: RouteWriteInput, actor: Actor): Promise<SynthesisRouteView | null> {
+    const store = getStore();
+    const route = live(store.routes).find((r) => r.id === routeId);
+    const product = route && store.products.find((p) => p.id === route.productId && !p.deletedAt);
+    if (!route || !product) return null;
+
+    assertRouteWritable({
+      outputId: route.productId,
+      input,
+      edges: routeEdges(live(store.routes).filter((r) => r.id !== routeId)),
+      activeProductName,
+    });
+
+    const changes = routeChanges(route, input, anyProductName);
+    if (input.isPreferred) {
+      for (const r of live(store.routes)) if (r.productId === route.productId && r.id !== routeId) r.isPreferred = false;
+    }
+    Object.assign(route, {
+      name: input.name,
+      isPreferred: input.isPreferred,
+      reviewStatus: input.reviewStatus,
+      notes: input.notes || undefined,
+      inputs: toRouteInputs(routeId, input.inputs),
+      updatedAt: nowIso(),
+    });
+
+    await memoryRepo.recordAudit({
+      action: 'UPDATE',
+      entity: 'product',
+      entityId: product.id,
+      entityLabel: product.name,
+      actorId: actor.id,
+      actorName: actor.name,
+      summary: `${actor.name} updated synthesis route “${route.name}” on ${product.name}`,
+      changes,
+    });
+    return toRouteView(route);
+  },
+
+  async deleteRoute(routeId: string, actor: Actor): Promise<boolean> {
+    const store = getStore();
+    const route = live(store.routes).find((r) => r.id === routeId);
+    if (!route) return false;
+    route.deletedAt = nowIso();
+    route.isPreferred = false;
+    const productName = anyProductName(route.productId) ?? 'Unknown product';
+
+    await memoryRepo.recordAudit({
+      action: 'DELETE',
+      entity: 'product',
+      entityId: route.productId,
+      entityLabel: productName,
+      actorId: actor.id,
+      actorName: actor.name,
+      summary: `${actor.name} removed synthesis route “${route.name}” from ${productName}`,
+    });
+    return true;
   },
 
   /* ── Structure search ─────────────────────────────────────────── */

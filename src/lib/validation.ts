@@ -1,6 +1,13 @@
 import { z } from 'zod';
-import { PRODUCT_STATUSES, STRUCTURE_SEARCH_MODES } from './types';
-import type { EquipmentKey, ProductQuery, CompanyQuery, StructureQuery, StructureSearchMode } from './types';
+import { PRODUCT_STATUSES, ROUTE_INPUT_ROLES, STRUCTURE_SEARCH_MODES } from './types';
+import type {
+  CompanyQuery,
+  EquipmentKey,
+  ProductQuery,
+  RouteInputRole,
+  StructureQuery,
+  StructureSearchMode,
+} from './types';
 
 /* ════════════════════════════════════════════════════════════════════
    Zod schemas — the single validation source for React Hook Form on the
@@ -102,6 +109,50 @@ export const productUpdateSchema = productCreateSchema.partial();
 
 export type ProductBasicsValues = z.input<typeof productBasicsSchema>;
 export type ProductCreateValues = z.infer<typeof productCreateSchema>;
+
+/* ── Synthesis routes ───────────────────────────────────────────── */
+
+const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(''));
+
+export const routeInputSchema = z
+  .object({
+    role: z.enum(ROUTE_INPUT_ROLES as [RouteInputRole, ...RouteInputRole[]]),
+    /** A catalogue product… */
+    productId: z.string().min(1).optional(),
+    /** …or an external substance. */
+    externalName: optionalText(160),
+    externalCas: z
+      .string()
+      .trim()
+      .regex(CAS_PATTERN, 'Use the CAS format 000000-00-0')
+      .refine(isValidCasChecksum, 'CAS check digit does not validate')
+      .optional()
+      .or(z.literal('')),
+    externalSmiles: smilesSchema,
+    quantity: optionalText(60),
+  })
+  .refine((input) => Boolean(input.productId) !== Boolean(input.externalName), {
+    message: 'Choose a catalogue product or name an external substance — not both',
+    path: ['externalName'],
+  });
+
+export const routeSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Route name must be at least 2 characters').max(120),
+    isPreferred: z.boolean().default(false),
+    reviewStatus: z.enum(['unreviewed', 'reviewed']).default('unreviewed'),
+    notes: optionalText(1000),
+    inputs: z.array(routeInputSchema).min(1, 'Add at least one input').max(30, 'Up to 30 inputs per route'),
+  })
+  .refine(
+    (route) => {
+      const ids = route.inputs.map((i) => i.productId).filter(Boolean);
+      return new Set(ids).size === ids.length;
+    },
+    { message: 'Each catalogue product can appear only once in a route', path: ['inputs'] },
+  );
+
+export type RouteValues = z.input<typeof routeSchema>;
 
 /* ── Company ────────────────────────────────────────────────────── */
 

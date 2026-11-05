@@ -5,11 +5,13 @@ import type {
   DocumentRecord,
   Product,
   ProductCompany,
+  SynthesisRoute,
   User,
 } from '@/lib/types';
 import { APPLICATION_BY_ID, CATEGORY_BY_ID, LOCATION_BY_ID } from './masters';
 import { buildCompanies } from './companies';
 import { buildProducts } from './products';
+import { buildRoutes } from './routes';
 
 /* ════════════════════════════════════════════════════════════════════
    Dataset assembly.
@@ -339,6 +341,7 @@ export interface Dataset {
   users: User[];
   auditLogs: AuditLog[];
   documents: DocumentRecord[];
+  routes: SynthesisRoute[];
 }
 
 /** Builds a complete, deterministic dataset. Call once per process. */
@@ -348,6 +351,7 @@ export function buildDataset(): Dataset {
   const links = buildLinks(products, companies);
   const auditLogs = buildAuditLogs(products, companies);
   const documents = buildDocuments(products, companies);
+  const routes = buildRoutes(products, SEED_NOW);
 
-  return { products, companies, equipment, links, users: USERS, auditLogs, documents };
+  return { products, companies, equipment, links, users: USERS, auditLogs, documents, routes };
 }

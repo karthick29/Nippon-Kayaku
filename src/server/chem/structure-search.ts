@@ -1,6 +1,5 @@
 import 'server-only';
 import type { MainModule as RDKitModule, Mol } from '@rdkit/rdkit';
-import { ZodError } from 'zod';
 import type {
   Paginated,
   ProductQuery,
@@ -10,6 +9,7 @@ import type {
   StructureSearchResult,
 } from '@/lib/types';
 import { MAX_STRUCTURE_LENGTH } from '@/lib/validation';
+import { throwFieldError } from '@/server/field-error';
 import { loadRDKit } from './rdkit';
 
 /* ════════════════════════════════════════════════════════════════════
@@ -40,7 +40,7 @@ type ListProducts = (query: ProductQuery) => Promise<Paginated<ProductRow>>;
 
 /** A query problem the user can fix — surfaces as a 422 on `q`. */
 function invalidQuery(message: string): never {
-  throw new ZodError([{ code: 'custom', path: ['q'], message, input: undefined }]);
+  throwFieldError(['q'], message);
 }
 
 export async function runStructureSearch(query: StructureQuery, listProducts: ListProducts): Promise<StructureSearchResult> {

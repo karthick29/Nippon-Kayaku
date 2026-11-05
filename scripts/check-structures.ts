@@ -1,7 +1,8 @@
 /* ════════════════════════════════════════════════════════════════════
    npm run check:structures
 
-   Verifies every seed structure in src/data/products.ts, offline:
+   Verifies every seed structure in src/data/products.ts and every external
+   route input in src/data/routes.ts, offline:
      • SMILES parses and is already in RDKit canonical form
      • stored InChIKey matches the one RDKit derives from the SMILES
      • element counts match the seed's molecular formula
@@ -15,6 +16,8 @@
 
 import initRDKit from '@rdkit/rdkit';
 import { buildProducts } from '../src/data/products';
+import { buildRoutes } from '../src/data/routes';
+import { isValidCasChecksum } from '../src/lib/validation';
 import { countMolJson, formatHill, sameFormula } from '../src/lib/formula';
 
 async function main(): Promise<void> {
@@ -54,8 +57,26 @@ async function main(): Promise<void> {
     }
   }
 
+  // Route inputs: external substances must have a parseable, canonical SMILES
+  // and a checksum-valid CAS. (buildRoutes also throws on an unknown product CAS.)
+  const routes = buildRoutes(products, new Date('2026-07-01T00:00:00.000Z'));
+  const externals = routes.flatMap((r) => r.inputs.filter((i) => !i.productId).map((i) => ({ route: r.name, input: i })));
+  for (const { route, input } of externals) {
+    const label = `Route “${route}” input ${input.externalName} (${input.externalCas ?? 'no CAS'})`;
+    if (input.externalCas && !isValidCasChecksum(input.externalCas)) failures.push(`${label}: CAS check digit does not validate`);
+    if (!input.externalSmiles) continue;
+    const mol = rdkit.get_mol(input.externalSmiles);
+    if (!mol) {
+      failures.push(`${label}: SMILES does not parse — ${input.externalSmiles}`);
+      continue;
+    }
+    const canonical = mol.get_smiles();
+    mol.delete();
+    if (canonical !== input.externalSmiles) failures.push(`${label}: not canonical — store ${canonical}`);
+  }
+
   const checked = products.length - withoutStructure.length;
-  console.log(`Checked ${checked} structures (RDKit ${rdkit.version()}).`);
+  console.log(`Checked ${checked} product structures and ${externals.length} route inputs across ${routes.length} routes (RDKit ${rdkit.version()}).`);
   if (withoutStructure.length) {
     console.log(`No structure recorded (${withoutStructure.length}): ${withoutStructure.join('; ')}`);
   }
@@ -63,7 +84,7 @@ async function main(): Promise<void> {
     console.error(`\n✗ ${failures.length} problem(s):\n  ${failures.join('\n  ')}`);
     process.exit(1);
   }
-  console.log('✓ All structures agree with their formula, weight and InChIKey.');
+  console.log('✓ All structures agree with their formula, weight and InChIKey; route inputs are canonical with valid CAS numbers.');
 }
 
 main().catch((error: unknown) => {
