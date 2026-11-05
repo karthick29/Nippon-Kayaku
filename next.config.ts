@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Self-contained server bundle in .next/standalone — used by `npm run build:external`.
+  output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {

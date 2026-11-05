@@ -106,7 +106,7 @@ export async function exportPdf<T>(
   name: string,
   meta: { title: string; subtitle?: string },
 ): Promise<void> {
-  const { default: JsPDF } = await import('jspdf');
+  const { jsPDF: JsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
 
   const doc = new JsPDF({ orientation: columns.length > 6 ? 'landscape' : 'portrait', unit: 'pt', format: 'a4' });
