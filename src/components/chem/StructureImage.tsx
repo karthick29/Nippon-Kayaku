@@ -3,6 +3,8 @@ import { depictStructure } from '@/server/chem/rdkit';
 import { StructureSvg } from './StructureSvg';
 
 const DIMENSIONS = {
+  /** Table-row thumbnail. */
+  xs: { width: 120, height: 72 },
   sm: { width: 160, height: 120 },
   md: { width: 320, height: 220 },
   lg: { width: 480, height: 320 },

@@ -18,13 +18,13 @@ export function StructureSvg({
 }: {
   svg: string | null;
   label: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }) {
   if (!svg) {
     return (
       <div className={cx('astra-structure', `astra-structure--${size}`, 'astra-structure--empty', className)} role="img" aria-label={`${label}: no structure`}>
-        <FlaskConical size={size === 'sm' ? 16 : 22} aria-hidden="true" />
+        <FlaskConical size={size === 'xs' || size === 'sm' ? 16 : 22} aria-hidden="true" />
       </div>
     );
   }

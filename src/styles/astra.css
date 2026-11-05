@@ -1760,6 +1760,11 @@
   width: 100%;
   height: auto;
 }
+.astra-structure--xs {
+  width: 120px;
+  aspect-ratio: 5 / 3;
+  padding: var(--vbds-space-4);
+}
 .astra-structure--sm {
   max-width: 160px;
   aspect-ratio: 4 / 3;
@@ -1829,6 +1834,190 @@
 @media (max-width: 640px) {
   .astra-structure-field {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Synthesis ──────────────────────────────────────────────────── */
+.astra-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vbds-space-12);
+  padding: var(--vbds-space-12) var(--vbds-space-16);
+  font-size: var(--vbds-body-size);
+  line-height: var(--vbds-body-line);
+  color: var(--vbds-text);
+  border-radius: var(--vbds-radius-card);
+  border: 1px solid var(--vbds-border);
+  background: var(--vbds-surface);
+}
+.astra-callout > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.astra-callout a {
+  font-weight: 600;
+  text-underline-offset: 2px;
+}
+.astra-callout--warning {
+  background: var(--vbds-warning-subtle);
+  border-color: var(--vbds-warning-border);
+}
+.astra-callout--warning > svg {
+  color: var(--vbds-warning);
+}
+
+.astra-route-card {
+  border: 1px solid var(--vbds-divider);
+  border-radius: var(--vbds-radius-card);
+  padding: var(--vbds-space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-12);
+}
+.astra-route-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--vbds-space-12);
+}
+.astra-route-card__title {
+  font-size: var(--vbds-title-size);
+  line-height: var(--vbds-title-line);
+  font-weight: var(--vbds-title-weight);
+  color: var(--vbds-text);
+}
+.astra-route-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-8);
+  margin-top: var(--vbds-space-4);
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-secondary);
+}
+.astra-route-card__notes {
+  font-size: var(--vbds-body-size);
+  line-height: var(--vbds-body-line);
+  color: var(--vbds-text-secondary);
+}
+.astra-route-card__actions {
+  display: inline-flex;
+  gap: var(--vbds-space-8);
+  flex-shrink: 0;
+}
+/* Chemical names are long and are the point of these tables — wrap, don't clip.
+   Undoes the base table's max-width: 0 ellipsis trick, which otherwise lets a
+   column shrink below a single word ("Phosphorylatio-n"). */
+.astra-table--wrap tbody td {
+  white-space: normal;
+  overflow: visible;
+  max-width: none;
+  overflow-wrap: break-word;
+  padding-top: var(--vbds-space-8);
+  padding-bottom: var(--vbds-space-8);
+}
+.astra-route-input__name {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-8);
+}
+.astra-muted {
+  color: var(--vbds-text-tertiary);
+  font-size: var(--vbds-caption-size);
+}
+.astra-plain-link {
+  text-decoration: none;
+}
+
+/* Route editor — scrolls inside the dialog; the dialog itself only caps height. */
+.astra-route-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-16);
+  min-height: 0;
+}
+.astra-route-editor__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-16);
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding-right: var(--vbds-space-4);
+}
+.astra-route-editor__preferred {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: var(--vbds-space-8);
+}
+.astra-route-editor__inputs-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vbds-space-12);
+}
+.astra-route-editor__heading {
+  font-size: var(--vbds-label-size);
+  line-height: var(--vbds-label-line);
+  font-weight: 600;
+  color: var(--vbds-text);
+}
+.astra-route-editor__error {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-danger);
+}
+.astra-route-editor__inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-12);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.astra-route-editor__input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-12);
+  padding: var(--vbds-space-12);
+  border: 1px solid var(--vbds-divider);
+  border-radius: var(--vbds-radius-sm);
+  background: var(--vbds-surface-2);
+}
+.astra-route-editor__input-head {
+  display: flex;
+  align-items: center;
+  gap: var(--vbds-space-12);
+}
+.astra-route-editor__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--vbds-radius-full);
+  background: var(--vbds-primary-subtle);
+  color: var(--vbds-primary);
+  font-size: var(--vbds-caption-size);
+  font-weight: 600;
+}
+.astra-route-editor__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--vbds-space-12);
+}
+.astra-route-editor__wide {
+  grid-column: span 2;
+}
+.astra-route-editor__smiles input {
+  font-family: var(--vbds-font-mono);
+}
+.astra-route-editor__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--vbds-space-8);
+}
+@media (max-width: 640px) {
+  .astra-route-editor__wide {
+    grid-column: auto;
   }
 }
 

@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   FlaskConical,
+  GitBranch,
   Info,
   MapPin,
 } from 'lucide-react';
@@ -30,9 +31,11 @@ import { EQUIPMENT_MASTER } from '@/data/masters';
 import { formatDate, formatDateTime, formatNumber, formatRelative, orDash } from '@/lib/format';
 import { statusTone } from '@/lib/status';
 import { auth } from '@/server/auth';
+import { can } from '@/server/rbac';
 import { repo } from '@/server/repo';
 import { ProductActions } from './ProductActions';
 import { ProductCompaniesTable } from './ProductCompaniesTable';
+import { SynthesisTab } from './SynthesisTab';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +54,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 const TABS = [
   { value: 'overview', label: 'Overview', icon: <Info size={14} /> },
   { value: 'companies', label: 'Companies', icon: <Building2 size={14} /> },
+  { value: 'synthesis', label: 'Synthesis', icon: <GitBranch size={14} /> },
   { value: 'documents', label: 'Documents', icon: <FileText size={14} /> },
   { value: 'history', label: 'History', icon: <Activity size={14} /> },
   { value: 'analytics', label: 'Analytics', icon: <ChartNoAxesColumn size={14} /> },
@@ -70,11 +74,22 @@ export default async function ProductDetailPage({
 
   const activeTab = TABS.some((t) => t.value === tab) ? tab! : 'overview';
 
-  const [companies, documents, history] = await Promise.all([
+  const canEditRoutes = can(session?.user.role, 'product:update');
+  const [companies, documents, history, routes, whereUsed] = await Promise.all([
     repo.getProductCompanies(product.id),
     repo.listDocuments({ productId: product.id }),
     repo.listEntityAuditLogs(product.id, 30),
+    repo.listRoutes(product.id),
+    repo.getWhereUsed(product.id),
   ]);
+  // The route editor's product picker — only loaded when it can be used.
+  const catalogue =
+    activeTab === 'synthesis' && canEditRoutes
+      ? (await repo.allProducts())
+          .filter((p) => p.id !== product.id)
+          .map((p) => ({ id: p.id, name: p.name, casNumber: p.casNumber }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      : [];
 
   return (
     <div className="astra-page astra-page--wide">
@@ -134,7 +149,9 @@ export default async function ProductDetailPage({
               count:
                 t.value === 'companies'
                   ? companies.length
-                  : t.value === 'documents'
+                  : t.value === 'synthesis'
+                    ? routes.length + whereUsed.length || undefined
+                    : t.value === 'documents'
                     ? documents.length
                     : t.value === 'history'
                       ? history.length
@@ -151,6 +168,15 @@ export default async function ProductDetailPage({
             rows={companies}
             equipmentMaster={EQUIPMENT_MASTER}
             productName={product.name}
+          />
+        )}
+        {activeTab === 'synthesis' && (
+          <SynthesisTab
+            product={{ id: product.id, name: product.name }}
+            routes={routes}
+            whereUsed={whereUsed}
+            canEdit={canEditRoutes}
+            catalogue={catalogue}
           />
         )}
         {activeTab === 'documents' && <DocumentsTab documents={documents} />}

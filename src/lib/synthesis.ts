@@ -7,6 +7,30 @@ import type { RouteInputRole, SynthesisRoute } from './types';
    inputs are edges; external substances are leaves outside the graph.
    ════════════════════════════════════════════════════════════════════ */
 
+/* ── Display ────────────────────────────────────────────────────── */
+
+export const ROUTE_ROLE_LABELS: Record<RouteInputRole, string> = {
+  'building-block': 'Building block',
+  reagent: 'Reagent',
+  catalyst: 'Catalyst',
+  solvent: 'Solvent',
+};
+
+export type SupplyRisk = 'none' | 'single' | 'covered';
+
+/**
+ * Supply resilience of a catalogue input, from its mapped supplier count.
+ * 0 → nobody can supply it; 1 → single source, one failure stops the
+ * route; 2+ → covered. External inputs aren't tracked in ASTRA.
+ */
+export function supplyRisk(companyCount: number): SupplyRisk {
+  if (companyCount === 0) return 'none';
+  if (companyCount === 1) return 'single';
+  return 'covered';
+}
+
+/* ── Graph ──────────────────────────────────────────────────────── */
+
 export interface RouteEdge {
   /** The catalogue product used as an input. */
   from: string;
