@@ -96,10 +96,17 @@ async function main() {
 
   /* ── Master data ──────────────────────────────────────────────── */
   console.log('› Seeding master data…');
+  // Master rows keep their fixed seed ids (app-pharma-agro, cat-reagent,
+  // loc-hosur…) instead of generated cuids. The forms, filters and ⌘K
+  // palette read these ids from src/data/masters.ts in both adapters, so
+  // the database must use the same ones — otherwise every product create
+  // fails its foreign key and every application/category/location filter
+  // matches nothing.
   const applicationRows = await Promise.all(
     APPLICATIONS.map((a) =>
       prisma.application.create({
         data: {
+          id: a.id,
           name: a.name,
           slug: a.slug,
           description: a.description,
@@ -115,7 +122,7 @@ async function main() {
   const categoryRows = await Promise.all(
     CATEGORIES.map((c) =>
       prisma.productCategory.create({
-        data: { name: c.name, slug: c.slug, description: c.description, sortOrder: c.sortOrder, active: c.active },
+        data: { id: c.id, name: c.name, slug: c.slug, description: c.description, sortOrder: c.sortOrder, active: c.active },
       }),
     ),
   );
@@ -125,6 +132,7 @@ async function main() {
     LOCATIONS.map((l) =>
       prisma.companyLocation.create({
         data: {
+          id: l.id,
           name: l.name,
           slug: l.slug,
           state: l.state,
