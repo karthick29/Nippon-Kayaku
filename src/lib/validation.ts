@@ -39,8 +39,14 @@ export const casSchema = z
   .regex(CAS_PATTERN, 'Use the CAS format 000000-00-0')
   .refine(isValidCasChecksum, 'CAS check digit does not validate');
 
-/** Hard cap on SMILES / SMARTS input — bounds parse and match cost on the server. */
-export const MAX_STRUCTURE_LENGTH = 1000;
+/**
+ * Hard cap on SMILES / SMARTS input — bounds parse and match cost on the server.
+ *
+ * Measured, not guessed: RDKit's SMILES parser recurses per atom, and an
+ * unbranched chain of ~650 atoms overflows the WASM stack (a trap, not an
+ * exception). 400 leaves a 1.5× margin; the longest seeded structure is 57.
+ */
+export const MAX_STRUCTURE_LENGTH = 400;
 
 /**
  * SMILES — shape check only. Real parsing needs RDKit, which runs on the

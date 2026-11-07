@@ -230,6 +230,34 @@ next to its JS; `outputFileTracingIncludes` copies the binary into the standalon
 Every RDKit `Mol` lives on the WASM heap and must be freed with `.delete()`. Use `withMol()`,
 which frees in a `finally`; never call `get_mol` bare.
 
+### Drawing structures
+
+Structures can be drawn as well as typed. **Ketcher** (EPAM, Apache-2.0) is the editor:
+`StructureEditorDialog` opens it beside the search box, the product forms' SMILES field and each
+external input in the route editor, and returns SMILES (SMARTS for query drawings in substructure
+search). What it returns goes through the same server canonicalisation as typed input, so a
+drawn and a pasted molecule are stored identically.
+
+- **Loaded on demand.** `import()` on first open; about 3.3 MB gzipped the first time (measured in
+  a production build), cached after. Initial page JS is unchanged but for the dialog shell (a few kB).
+  If the chunk fails to load the dialog shows **Try again** rather than a permanent spinner.
+- **One editor, parked between opens.** Ketcher leaks document listeners on unmount, so it is mounted
+  once and re-attached to each dialog; reopening is instant and each open starts from a cleared canvas.
+- **Loaded from a molfile.** An existing structure goes through `GET /api/structure/molfile`
+  (RDKit 2D coordinates, unspecified double bonds drawn "either", absolute-stereo flag) because Ketcher's
+  SMILES import invents E/Z geometry. Applying a drawing you didn't touch returns the original string.
+- **Nothing is discarded silently.** Escape, Cancel and ✕ ask first once the drawing has changed.
+  Escape closes Ketcher's own popup first. Reactions are refused; over-long structures are refused with
+  the limit; ⌘K and "/" are ignored while the editor has focus.
+- **`ketcher-standalone/dist/binaryWasmNoRender`.** Indigo runs as a separate `.wasm` in a Web
+  Worker, without its image renderer — Ketcher draws its own canvas and RDKit draws everything else.
+- **Never closes on an outside click.** The dialog is a Radix dialog that only closes from its own
+  buttons or Escape, so a stray click can't discard a drawing. Ketcher's own popups (periodic
+  table, atom properties) render inside it, and it nests correctly over the route editor's dialog.
+- **Toolbar trimmed to what can be stored.** Reaction arrows/mapping, R-groups, S-groups, shapes, text,
+  image recognition, 3D, settings, help/about and fullscreen are hidden (`HIDDEN_BUTTONS`).
+- **paper.js alias.** See CLAUDE.md gotcha 11.
+
 ### Canonical input
 
 `resolveStructureInput()` turns user SMILES into what is stored: RDKit canonical SMILES plus its
@@ -397,7 +425,7 @@ First-load JS is ~103 kB shared; the heaviest route (Dashboard, with Recharts) i
 | **Session theft** | HttpOnly, `SameSite=Lax`, `Secure` in production, 8-hour expiry, HS256-signed |
 | **Privilege escalation** | Every mutating route re-checks permissions server-side |
 | **Input validation** | Zod at every boundary, including CAS checksum validation; structures re-parsed by RDKit on the server |
-| **Expensive chemistry input** | SMILES/SMARTS capped at 1000 characters and 150 query atoms |
+| **Expensive chemistry input** | SMILES/SMARTS capped at 400 characters (measured WASM stack limit ≈ 650) and 150 query atoms; a WASM trap resets the module and returns a 422 |
 | **Clickjacking** | `X-Frame-Options: DENY` |
 | **MIME sniffing** | `X-Content-Type-Options: nosniff` |
 | **Referrer leakage** | `strict-origin-when-cross-origin` |

@@ -80,7 +80,35 @@ in-memory default, which is how it went unnoticed.
 Mixed JSX children (`{a} — {b}`) put text separators inside them and cause a hydration mismatch
 that only shows in the browser. Use a template literal.
 
-### 11. `.astra-table` truncates by design
+### 11. The structure editor (Ketcher) loads only through `StructureEditorDialog`
+`src/components/chem/KetcherCanvas.tsx` pulls ~3.3 MB (gzip) of editor and Indigo WASM and touches
+`window` on import. Never import it statically — `StructureEditorDialog` `import()`s it on first open,
+so pages that never open the editor never download it. The `webpack()` block in `next.config.ts`
+aliases paper.js's Node shim (and `jsdom`, `canvas`, `acorn`) to `false` for **every** build: Next
+ignores paper's `browser` field, and even client-only code is compiled for the server pass. Remove it
+and the editor fails to compile. If you switch the dev server to Turbopack, port that alias to
+`turbopack.resolveAlias` first.
+
+Three rules that came out of review — each one fixed a real failure:
+
+- **One editor per page, parked between opens.** Ketcher never removes its document/window
+  listeners; mounting a fresh one per open leaked ~800 listeners each time. `KetcherCanvas` mounts it
+  once into a detached host element and the dialog attaches/parks it. It must be parked at a real size
+  in the document (not `remove()`d, not `display:none`) — a detached tree makes Ketcher's ruler throw
+  "Could not resolve relative length" and unmount itself. The dialog tracks its canvas element as
+  **state**, not a ref: Radix mounts the content a render after `open` flips.
+- **Load as a molfile, not a SMILES string.** `GET /api/structure/molfile` (`molfileFor`) gives
+  Ketcher an RDKit 2D molfile with "either" bonds for unspecified double bonds and the absolute-stereo
+  flag. Ketcher's own SMILES import invents E/Z geometry (456/465 vs 427/473 test structures
+  round-trip identically). An untouched drawing is applied as the original string, never re-derived.
+- **RDKit limits are measured.** `MAX_STRUCTURE_LENGTH` is 400: an unbranched ~650-atom chain
+  overflows the WASM stack (a trap, not an exception). Traps are caught in `withMol` and
+  `runStructureSearch`, the shared module is reloaded, and the caller gets a 422 — never a 500 and
+  never a poisoned server. CoordGen (`set_new_coords(true)`) never returns on a 40-membered ring and
+  blocks the event loop, so `molfileFor` uses RDKit's own depictor when the molecule has a ring of
+  30+ atoms. Re-run the fuzz (`scratchpad`-style: one child process per input) before raising either.
+
+### 12. `.astra-table` truncates by design
 Its cells use `max-width: 0` + ellipsis so dense grids stay one line. For tables where the
 text *is* the point (chemical names), add `.astra-table--wrap`; don't change the base rule.
 
@@ -193,6 +221,4 @@ Don't "fix" these without asking — they're scoped decisions, and the README st
   wizard/edit/delete UI.
 - **Seeded synthesis routes are `unreviewed`.** They summarise literature processes; a chemist
   marks them reviewed. Don't flip them in the seed.
-- **Structures are entered as SMILES text.** There is no drawing editor (Ketcher was considered
-  and deferred for bundle size).
 - **Import accepts CSV**, not native `.xlsx`. Export produces real `.xlsx` via ExcelJS.

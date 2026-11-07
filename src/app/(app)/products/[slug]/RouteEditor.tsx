@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, Plus, Route as RouteIcon, Trash2, X } from 'lucide-react';
+import { Pencil, PenTool, Plus, Route as RouteIcon, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import {
   TextArea,
   TextField,
 } from '@/components/vbds';
+import { StructureEditorDialog } from '@/components/chem/StructureEditorDialog';
 import { ROUTE_ROLE_LABELS } from '@/lib/synthesis';
 import {
   ROUTE_INPUT_ROLES,
@@ -164,6 +165,8 @@ export function RouteEditorDialog({
   const [draft, setDraft] = useState<Draft>(() => toDraft(route, isFirstRoute, nextKey));
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
+  /** Which input row the structure editor is drawing for, if open. */
+  const [drawingFor, setDrawingFor] = useState<number | null>(null);
 
   // Reset the form each time the dialog opens, so a cancelled edit doesn't
   // linger. An effect, not onOpenChange: Radix only calls onOpenChange for
@@ -373,6 +376,17 @@ export function RouteEditorDialog({
                             onChange={(e) => updateInput(index, { externalSmiles: e.target.value })}
                             error={Boolean(err('externalSmiles'))}
                             supportingText={err('externalSmiles')}
+                            trailing={
+                              <Button
+                                size="sm"
+                                variant="text"
+                                icon={<PenTool size={13} />}
+                                onClick={() => setDrawingFor(index)}
+                                aria-label={`Draw the structure of input ${index + 1}`}
+                              >
+                                Draw
+                              </Button>
+                            }
                           />
                         </div>
                       </>
@@ -421,6 +435,18 @@ export function RouteEditorDialog({
           </Button>
         </div>
       </form>
+
+      <StructureEditorDialog
+        open={drawingFor !== null}
+        onOpenChange={(next) => !next && setDrawingFor(null)}
+        initialSmiles={drawingFor !== null ? draft.inputs[drawingFor]?.externalSmiles : undefined}
+        title={
+          drawingFor !== null && draft.inputs[drawingFor]?.externalName
+            ? `Draw ${draft.inputs[drawingFor]!.externalName}`
+            : 'Draw the substance'
+        }
+        onApply={(structure) => drawingFor !== null && updateInput(drawingFor, { externalSmiles: structure })}
+      />
     </Dialog>
   );
 }

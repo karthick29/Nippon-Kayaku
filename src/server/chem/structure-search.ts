@@ -10,7 +10,7 @@ import type {
 } from '@/lib/types';
 import { MAX_STRUCTURE_LENGTH } from '@/lib/validation';
 import { throwFieldError } from '@/server/field-error';
-import { loadRDKit } from './rdkit';
+import { loadRDKit, recoverFromTrap } from './rdkit';
 
 /* ════════════════════════════════════════════════════════════════════
    Structure search engine — shared by both repository adapters.
@@ -44,6 +44,16 @@ function invalidQuery(message: string): never {
 }
 
 export async function runStructureSearch(query: StructureQuery, listProducts: ListProducts): Promise<StructureSearchResult> {
+  try {
+    return await searchProducts(query, listProducts);
+  } catch (error) {
+    // A WASM trap (e.g. a pathological query) must not poison the shared module or surface as a 500.
+    if (recoverFromTrap(error)) invalidQuery('This structure is too complex to search for');
+    throw error;
+  }
+}
+
+async function searchProducts(query: StructureQuery, listProducts: ListProducts): Promise<StructureSearchResult> {
   const rdkit = await loadRDKit();
   const text = query.query.trim();
   if (!text || text.length > MAX_STRUCTURE_LENGTH) invalidQuery('Enter a structure to search for');

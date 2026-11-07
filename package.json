@@ -45,6 +45,9 @@
     "jose": "^6.0.8",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
+    "ketcher-core": "^3.18.0",
+    "ketcher-react": "^3.18.0",
+    "ketcher-standalone": "^3.18.0",
     "lucide-react": "^0.475.0",
     "material-symbols": "^0.28.1",
     "next": "^15.5.29",
@@ -70,6 +73,10 @@
   "overrides": {
     "uuid": "^11.1.1",
     "deepmerge-ts": "^8.0.2",
-    "postcss": "^8.5.23"
+    "postcss": "^8.5.23",
+    "dpdm": {
+      "glob": "^14.0.3",
+      "minimatch": "^11.0.4"
+    }
   }
 }

@@ -1,11 +1,12 @@
 'use client';
 
-import { Equal, Hexagon, LayoutGrid, List, Shapes, SlidersHorizontal, TextSearch, X } from 'lucide-react';
+import { Equal, Hexagon, LayoutGrid, List, PenTool, Shapes, SlidersHorizontal, TextSearch, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { Application, EquipmentMaster, Location, ProductCategory, ProductStatus } from '@/lib/types';
 import { Badge, Button, Chip, SearchField, SegmentedControl, Select } from '@/components/vbds';
 import { useRecentSearches } from '@/components/shell/useRecentSearches';
+import { StructureEditorDialog } from '@/components/chem/StructureEditorDialog';
 
 /* ════════════════════════════════════════════════════════════════════
    Search controls.
@@ -92,6 +93,7 @@ export function SearchControls({
   const isStructure = mode !== 'text';
   const [draft, setDraft] = useState(params.get('q') ?? '');
   const [showFilters, setShowFilters] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const committed = useRef(params.get('q') ?? '');
 
   // Keep the input in sync when the URL changes from elsewhere
@@ -121,6 +123,10 @@ export function SearchControls({
   // Debounced commit of the search box.
   useEffect(() => {
     if (draft === committed.current) return;
+    // Not while the editor is open: a URL commit re-renders the results subtree, and a
+    // pending one from just before "Draw" was clicked would rip the dialog down mid-drawing.
+    // The effect re-runs when the dialog closes, so the applied structure is committed then.
+    if (drawing) return;
     // Structures debounce longer: a half-typed SMILES is usually invalid, and
     // a 422 flashing on every keystroke is noise.
     const timer = setTimeout(() => {
@@ -132,7 +138,7 @@ export function SearchControls({
       }, true);
     }, isStructure ? 600 : 200);
     return () => clearTimeout(timer);
-  }, [draft, push, addRecent, isStructure]);
+  }, [draft, push, addRecent, isStructure, drawing]);
 
   /** Text ↔ structure clears the query (a name isn't a SMILES); between structure modes it's kept. */
   function setMode(next: SearchMode) {
@@ -188,6 +194,7 @@ export function SearchControls({
       <div className="astra-search-panel__modes">
         <SegmentedControl ariaLabel="Search mode" value={mode} onValueChange={(v) => setMode(v as SearchMode)} items={MODES} />
       </div>
+      <div className="astra-search-panel__query">
       <SearchField
         hero
         fullWidth
@@ -200,6 +207,23 @@ export function SearchControls({
         className={isStructure ? 'astra-search-panel__field--structure' : undefined}
         trailing={pending ? <span className="vbds-spinner vbds-spinner--sm" aria-label="Searching" /> : undefined}
       />
+      {isStructure && (
+        <Button variant="outlined" size="lg" icon={<PenTool size={16} />} onClick={() => setDrawing(true)}>
+          Draw
+        </Button>
+      )}
+      </div>
+
+      {isStructure && (
+        <StructureEditorDialog
+          open={drawing}
+          onOpenChange={setDrawing}
+          initialSmiles={draft}
+          allowQuery={mode === 'substructure'}
+          title={mode === 'substructure' ? 'Draw a fragment to search for' : 'Draw a structure to search for'}
+          onApply={(structure) => setDraft(structure)}
+        />
+      )}
 
       {isStructure && (
         <p className="astra-search-panel__structure-hint">

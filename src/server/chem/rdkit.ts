@@ -39,17 +39,41 @@ export function loadRDKit(): Promise<RDKitModule> {
   return globalThis.__astraRDKit;
 }
 
-/** Parses a molecule, runs `fn`, and always frees the WASM memory. Returns null for unparseable input. */
+/**
+ * A WebAssembly trap (stack overflow, out-of-bounds) leaves the module's heap in an
+ * unknown state, and the singleton is shared by every request. Drop it so the next
+ * call loads a fresh one, instead of failing every structure request until restart.
+ */
+export function recoverFromTrap(error: unknown): boolean {
+  if (typeof WebAssembly !== 'undefined' && error instanceof WebAssembly.RuntimeError) {
+    globalThis.__astraRDKit = undefined;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Parses a molecule, runs `fn`, and always frees the WASM memory. Returns null for
+ * unparseable input — and for input RDKit cannot process without trapping, which
+ * callers report as "not a valid structure" (a 422), never a 500.
+ */
 export async function withMol<T>(smiles: string, fn: (mol: Mol, rdkit: RDKitModule) => T): Promise<T | null> {
   const input = smiles.trim();
   if (!input || input.length > MAX_STRUCTURE_LENGTH) return null;
   const rdkit = await loadRDKit();
-  const mol = rdkit.get_mol(input);
-  if (!mol) return null;
+  let mol: Mol | null = null;
   try {
-    return mol.is_valid() ? fn(mol, rdkit) : null;
+    mol = rdkit.get_mol(input);
+    return mol && mol.is_valid() ? fn(mol, rdkit) : null;
+  } catch (error) {
+    recoverFromTrap(error);
+    return null;
   } finally {
-    mol.delete();
+    try {
+      mol?.delete();
+    } catch {
+      /* the module was just discarded; there is nothing left to free */
+    }
   }
 }
 
@@ -88,6 +112,41 @@ export function describeStructure(smiles: string): Promise<StructureInfo | null>
  */
 export function hillFormula(mol: Mol): string {
   return formatHill(countMolJson(mol.get_json()));
+}
+
+/* ── Editor interchange ─────────────────────────────────────────── */
+
+/**
+ * A 2D molfile of `smiles` for the structure editor, or null if it doesn't parse.
+ *
+ * The editor is loaded from a molfile rather than a SMILES string. Ketcher's own
+ * SMILES import invents E/Z geometry for unspecified double bonds and drops
+ * isotope/charge detail on some inputs; a molfile from RDKit avoids that (456 of
+ * 465 test structures round-trip identically, against 427 via SMILES). Double bonds
+ * with unspecified stereo are written "either" so the editor keeps them unspecified,
+ * and the counts line carries the absolute-stereo flag so stereocentres stay set.
+ *
+ * CoordGen draws nicer layouts but does not terminate on macrocycles (a 40-membered
+ * ring never returns, and it blocks the event loop), so rings of 30+ atoms fall back
+ * to RDKit's own depictor.
+ */
+export function molfileFor(smiles: string): Promise<string | null> {
+  return withMol(smiles, (mol, rdkit) => {
+    let macrocycle = false;
+    const query = rdkit.get_qmol('[r{30-}]');
+    if (query) {
+      try {
+        macrocycle = mol.get_substruct_match(query) !== '{}';
+      } finally {
+        query.delete();
+      }
+    }
+    mol.set_new_coords(!macrocycle);
+    const lines = mol.get_molblock().split('\n');
+    // V2000 counts line: columns 12–14 hold the chiral flag.
+    if (lines[3] && /V2000/.test(lines[3])) lines[3] = lines[3].slice(0, 12) + '  1' + lines[3].slice(15);
+    return lines.join('\n');
+  });
 }
 
 /* ── Depiction ──────────────────────────────────────────────────── */

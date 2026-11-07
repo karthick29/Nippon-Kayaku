@@ -792,6 +792,15 @@
 }
 
 /* ── Search page ────────────────────────────────────────────────── */
+.astra-search-panel__query {
+  display: flex;
+  align-items: center;
+  gap: var(--vbds-space-8);
+}
+.astra-search-panel__query > :first-child {
+  flex: 1;
+  min-width: 0;
+}
 .astra-search-panel__modes {
   display: flex;
   margin-bottom: var(--vbds-space-12);
@@ -1811,6 +1820,10 @@
   gap: var(--vbds-space-8);
   min-width: 0;
 }
+.astra-structure-field__actions {
+  display: flex;
+  gap: var(--vbds-space-8);
+}
 .astra-structure-field__derived {
   font-size: var(--vbds-caption-size);
   color: var(--vbds-text-secondary);
@@ -2027,6 +2040,101 @@
 .astra-map-legend__swatch--none {
   border-color: var(--vbds-danger);
   border-width: 2px;
+}
+
+/* Structure editor (Ketcher) — a large workspace dialog, not a vbds-dialog:
+   it needs room for Ketcher's toolbars and never closes on outside clicks. */
+.astra-sketcher {
+  position: fixed;
+  inset: var(--vbds-space-24);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  max-width: 1280px;
+  margin: 0 auto;
+  background: var(--vbds-surface);
+  border: 1px solid var(--vbds-border);
+  border-radius: var(--vbds-radius-dialog);
+  box-shadow: var(--vbds-shadow-overlay);
+  overflow: hidden;
+}
+.astra-sketcher__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vbds-space-12);
+  padding: var(--vbds-space-16) var(--vbds-space-20);
+  border-bottom: 1px solid var(--vbds-divider);
+}
+.astra-sketcher__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--vbds-radius-input);
+  background: var(--vbds-primary-subtle);
+  color: var(--vbds-primary);
+}
+.astra-sketcher__titles {
+  flex: 1;
+  min-width: 0;
+}
+.astra-sketcher__title {
+  font-size: var(--vbds-title-size);
+  line-height: var(--vbds-title-line);
+  font-weight: var(--vbds-title-weight);
+  color: var(--vbds-text);
+}
+.astra-sketcher__desc {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-secondary);
+}
+/* Ketcher sizes itself to its parent, so the canvas region needs a real height.
+   Ketcher paints its own light UI; keep its region light in dark mode too. */
+.astra-sketcher__canvas {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  color-scheme: light;
+}
+.astra-sketcher__host {
+  position: absolute;
+  inset: 0;
+}
+.astra-sketcher__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vbds-space-12);
+  font-size: var(--vbds-body-size);
+  color: var(--vbds-text-secondary);
+}
+.astra-sketcher__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--vbds-space-8);
+  padding: var(--vbds-space-12) var(--vbds-space-20);
+  border-top: 1px solid var(--vbds-divider);
+}
+.astra-sketcher__notice {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-danger);
+}
+.astra-sketcher__notice--confirm {
+  font-size: var(--vbds-body-size);
+  font-weight: 600;
+  color: var(--vbds-text-primary);
+}
+@media (max-width: 640px) {
+  .astra-sketcher {
+    inset: 0;
+    border-radius: 0;
+  }
 }
 
 /* Route editor — scrolls inside the dialog; the dialog itself only caps height. */

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -13,6 +14,26 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', '@tanstack/react-table'],
+  },
+  webpack(config) {
+    // Ketcher depends on paper.js. paper-full.js requires its Node shim
+    // (dist/node/self.js, extend.js → jsdom, canvas); paper's package.json
+    // "browser" field maps those to `false`, but Next doesn't honour that
+    // field. The shim fails to compile — on the server too: even with
+    // next/dynamic `ssr: false`, Next compiles the client component for its
+    // SSR pass. Ketcher never runs on the server and paper never runs its
+    // Node path in a browser, so apply paper's own mapping to every build.
+    const paperNode = path.join(path.dirname(require.resolve('paper/package.json')), 'dist', 'node');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      [path.join(paperNode, 'self.js')]: false,
+      [path.join(paperNode, 'extend.js')]: false,
+      jsdom: false,
+      canvas: false,
+      // paper's optional PaperScript parser (try/catch require); Ketcher doesn't use PaperScript.
+      acorn: false,
+    };
+    return config;
   },
   async headers() {
     return [

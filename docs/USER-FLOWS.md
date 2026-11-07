@@ -67,8 +67,12 @@ than one per keystroke.
 matched terms highlighted. Grid or list, user's choice, persisted in the URL.
 
 **Structure search** — the same page, switched from *Text* to a structure mode. The query is a
-SMILES string (from PubChem, or ChemDraw › Copy As › SMILES) and the mode lives in the URL like
-everything else, so a structure search is shareable too.
+SMILES string — typed, pasted from PubChem or ChemDraw (Copy As › SMILES), or **drawn**: the
+**Draw** button beside the box opens a ChemDraw-style editor (Ketcher) with bonds, rings, element
+and periodic-table tools, and *Use structure* drops the drawing into the search. Reopening it loads
+what is in the box; leaving with *Cancel*, ✕ or Escape asks first if you've changed the drawing, and a
+reaction (arrows, “+”) is refused with an explanation. The mode lives in the URL like everything else,
+so a structure search is shareable too.
 
 | Mode | Answers | Result card shows |
 |---|---|---|
@@ -157,8 +161,9 @@ ASTRA already holds — the suppliers mapped to each catalogue input — so the 
   this form could do.
 - **Server-side field errors map back onto the form** and jump the user to the step that owns
   the bad field.
-- **The structure is optional and previews live.** Paste a SMILES and the drawing, formula and
-  weight appear beside it; if they disagree with the formula already typed, one click replaces it
+- **The structure is optional and previews live.** Paste a SMILES, or **draw it** in the built-in
+  editor (*Draw structure*, or *Edit drawing* to adjust an existing one), and the drawing, formula
+  and weight appear beside it; if they disagree with the formula already typed, one click replaces it
   with the structure's values. The server stores the canonical form, so the same molecule is
   always the same string.
 
