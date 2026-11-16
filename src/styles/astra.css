@@ -301,14 +301,41 @@
   display: grid;
   gap: var(--vbds-space-16);
 }
+/* auto-fit, not auto-fill: four tiles span the row instead of leaving an
+   empty fifth track. Six tiles are pinned to 6 / 3 / 2 columns so the
+   sixth never wraps alone under five. */
 .astra-grid--stats {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.astra-grid--stats:has(> :nth-child(6):last-child) {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+@media (max-width: 1360px) {
+  .astra-grid--stats:has(> :nth-child(6):last-child) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .astra-grid--cards {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 .astra-grid--2 {
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+.astra-grid--3 {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+/* A short composition card beside a wide time series. */
+.astra-grid--1-2 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+@media (max-width: 1100px) {
+  .astra-grid--1-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Columns of stacked cards keep their own height rather than stretching. */
+.astra-grid--start {
+  align-items: start;
 }
 
 /* ── Data table ─────────────────────────────────────────────────── */
@@ -696,23 +723,12 @@
 .astra-result:hover {
   box-shadow: var(--vbds-shadow-raised);
   border-color: var(--vbds-primary-border);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 .astra-result__top {
   display: flex;
   align-items: flex-start;
   gap: var(--vbds-space-12);
-}
-.astra-result__glyph {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--vbds-radius-sm);
-  background: var(--vbds-primary-subtle);
-  color: var(--vbds-primary);
-  flex-shrink: 0;
 }
 .astra-result__name {
   font-size: var(--vbds-title-size);
@@ -764,7 +780,16 @@
   align-items: center;
   gap: var(--vbds-space-16);
 }
+.astra-result--list .astra-result__top {
+  flex: 0 0 min(420px, 38%);
+  min-width: 0;
+}
+.astra-result--list .astra-result__meta {
+  flex: 0 1 340px;
+  min-width: 0;
+}
 .astra-result--list .astra-result__companies {
+  flex: 1 1 0;
   border-top: none;
   padding-top: 0;
   margin-left: auto;
@@ -792,6 +817,15 @@
 }
 
 /* ── Search page ────────────────────────────────────────────────── */
+.astra-search-panel__query {
+  display: flex;
+  align-items: center;
+  gap: var(--vbds-space-8);
+}
+.astra-search-panel__query > :first-child {
+  flex: 1;
+  min-width: 0;
+}
 .astra-search-panel__modes {
   display: flex;
   margin-bottom: var(--vbds-space-12);
@@ -1256,17 +1290,6 @@
 }
 .astra-recent:hover .astra-recent__title {
   color: var(--vbds-primary);
-}
-.astra-recent__glyph {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--vbds-radius-sm);
-  background: var(--vbds-primary-subtle);
-  color: var(--vbds-primary);
-  flex-shrink: 0;
 }
 .astra-recent__main {
   flex: 1;
@@ -1780,6 +1803,14 @@
 .astra-structure--empty {
   color: var(--vbds-text-tertiary);
 }
+/* The placeholder icon keeps its own size — only a depiction fills the frame. */
+.astra-structure--empty svg {
+  width: auto;
+  flex-shrink: 0;
+}
+.astra-structure-panel .astra-dl {
+  align-self: stretch;
+}
 .astra-structure-panel {
   display: flex;
   flex-direction: column;
@@ -1791,11 +1822,72 @@
   color: var(--vbds-text-tertiary);
   text-align: center;
 }
+.astra-structure-export {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbds-space-8);
+  padding-top: var(--vbds-space-12);
+  border-top: 1px solid var(--vbds-divider);
+}
+.astra-structure-export__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-8);
+}
+.astra-structure-export__error {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-danger);
+}
+.astra-elemental {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-4) var(--vbds-space-16);
+  font-size: var(--vbds-body-size);
+  color: var(--vbds-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.astra-elemental b {
+  font-weight: 600;
+  color: var(--vbds-text);
+}
 .astra-structure--loading {
   opacity: 0.55;
 }
 .astra-break-all {
   word-break: break-all;
+}
+
+/* Molecule thumbnails — the structure stands in for a generic icon wherever
+   a product is listed. Two classes deep to out-rank .astra-structure--xs. */
+.astra-structure.astra-result__thumb {
+  width: 80px;
+  flex-shrink: 0;
+  transition: border-color var(--vbds-duration) var(--vbds-ease);
+}
+.astra-result:hover .astra-structure.astra-result__thumb {
+  border-color: var(--vbds-primary-border);
+}
+.astra-structure.astra-recent__thumb {
+  width: 72px;
+  flex-shrink: 0;
+  padding: var(--vbds-space-4);
+}
+
+/* Molecular formula: atom counts as subscripts. The UI face, not mono —
+   a formula is read as a word, and mono subscripts sit too far apart. */
+.astra-formula {
+  font-family: var(--vbds-font);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.astra-formula sub {
+  font-size: 0.72em;
+  line-height: 0;
+  vertical-align: baseline;
+  position: relative;
+  top: 0.32em;
 }
 
 /* SMILES input + live preview, side by side; stacks on narrow screens. */
@@ -1810,6 +1902,10 @@
   flex-direction: column;
   gap: var(--vbds-space-8);
   min-width: 0;
+}
+.astra-structure-field__actions {
+  display: flex;
+  gap: var(--vbds-space-8);
 }
 .astra-structure-field__derived {
   font-size: var(--vbds-caption-size);
@@ -1905,6 +2001,99 @@
   gap: var(--vbds-space-8);
   flex-shrink: 0;
 }
+/* Reaction scheme — reactants, arrow with conditions, product. Wraps as whole species. */
+.astra-scheme {
+  /* Drawings are 160 × 120; "+" and the arrow are placed against that, not against the names below. */
+  --astra-scheme-mid: 60px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--vbds-space-16) var(--vbds-space-12);
+  padding: var(--vbds-space-16);
+  border-radius: var(--vbds-radius-sm);
+  background: var(--vbds-surface-2);
+}
+.astra-scheme__group {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--vbds-space-12);
+}
+.astra-scheme__plus {
+  font-size: var(--vbds-headline-size);
+  font-weight: 400;
+  color: var(--vbds-text-secondary);
+  line-height: var(--vbds-headline-line);
+  margin-top: calc(var(--astra-scheme-mid) - var(--vbds-headline-line) / 2);
+}
+.astra-scheme__species {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vbds-space-4);
+  width: 160px;
+  text-align: center;
+}
+.astra-scheme__species .astra-structure {
+  background: var(--vbds-surface);
+}
+.astra-scheme__species--product .astra-structure {
+  border-color: var(--vbds-primary-border);
+}
+.astra-scheme__name {
+  font-size: var(--vbds-caption-size);
+  line-height: var(--vbds-caption-line);
+  font-weight: 600;
+  color: var(--vbds-text);
+  overflow-wrap: anywhere;
+}
+.astra-scheme__note {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-tertiary);
+}
+.astra-scheme__arrow {
+  position: relative;
+  flex: 1 1 140px;
+  max-width: 260px;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: var(--vbds-space-4);
+  /* The 12px shaft is the last child, so its centre lands on the drawings' mid-line. */
+  min-height: calc(var(--astra-scheme-mid) + 6px);
+  color: var(--vbds-text-secondary);
+}
+.astra-scheme__conditions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-height: var(--vbds-caption-line);
+  padding: 0 var(--vbds-space-12);
+  font-size: var(--vbds-caption-size);
+  line-height: var(--vbds-caption-line);
+  color: var(--vbds-text);
+  text-align: center;
+}
+.astra-scheme__shaft {
+  width: 100%;
+  height: 12px;
+  overflow: visible;
+}
+.astra-scheme__shaft line {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.astra-scheme__head {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 12px;
+  fill: currentColor;
+}
+
 /* Chemical names are long and are the point of these tables — wrap, don't clip.
    Undoes the base table's max-width: 0 ellipsis trick, which otherwise lets a
    column shrink below a single word ("Phosphorylatio-n"). */
@@ -2027,6 +2216,193 @@
 .astra-map-legend__swatch--none {
   border-color: var(--vbds-danger);
   border-width: 2px;
+}
+
+/* Structure editor (Ketcher) — a large workspace dialog, not a vbds-dialog:
+   it needs room for Ketcher's toolbars and never closes on outside clicks. */
+.astra-sketcher {
+  position: fixed;
+  inset: var(--vbds-space-24);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  max-width: 1280px;
+  margin: 0 auto;
+  background: var(--vbds-surface);
+  border: 1px solid var(--vbds-border);
+  border-radius: var(--vbds-radius-dialog);
+  box-shadow: var(--vbds-shadow-overlay);
+  overflow: hidden;
+}
+.astra-sketcher__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vbds-space-12);
+  padding: var(--vbds-space-16) var(--vbds-space-20);
+  border-bottom: 1px solid var(--vbds-divider);
+}
+.astra-sketcher__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--vbds-radius-input);
+  background: var(--vbds-primary-subtle);
+  color: var(--vbds-primary);
+}
+.astra-sketcher__titles {
+  flex: 1;
+  min-width: 0;
+}
+.astra-sketcher__title {
+  font-size: var(--vbds-title-size);
+  line-height: var(--vbds-title-line);
+  font-weight: var(--vbds-title-weight);
+  color: var(--vbds-text);
+}
+.astra-sketcher__desc {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-secondary);
+}
+/* Ketcher sizes itself to its parent, so the canvas region needs a real height.
+   Ketcher paints its own light UI; keep its region light in dark mode too. */
+.astra-sketcher__canvas {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  color-scheme: light;
+}
+.astra-sketcher__host {
+  position: absolute;
+  inset: 0;
+}
+/* The arrow and "+" tools exist in the one shared editor; they show only for a reaction drawing. */
+.astra-sketcher__host:not([data-reactions]) [data-testid='reaction-plus'],
+.astra-sketcher__host:not([data-reactions]) [data-testid='arrows-drop-down-button'] {
+  display: none;
+}
+/* Name / CAS lookup row, under the header. */
+.astra-sketcher__lookup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-8);
+  padding: var(--vbds-space-8) var(--vbds-space-20);
+  border-bottom: 1px solid var(--vbds-divider);
+  background: var(--vbds-surface-2);
+}
+.astra-sketcher__lookup form {
+  display: flex;
+  align-items: center;
+  gap: var(--vbds-space-8);
+  flex: 0 1 380px;
+  min-width: 240px;
+}
+.astra-sketcher__lookup form > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+/* Ketcher's stylesheet is global once loaded and outlines every focused input;
+   the field box already shows focus. */
+.astra-sketcher__lookup input:focus,
+.astra-sketcher__lookup input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.astra-sketcher__lookup-hint {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-secondary);
+}
+.astra-sketcher__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-4);
+}
+.astra-sketcher__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vbds-space-12);
+  font-size: var(--vbds-body-size);
+  color: var(--vbds-text-secondary);
+}
+/* Live analysis of the drawing — one quiet line of figures between canvas and actions. */
+.astra-analysis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vbds-space-8) var(--vbds-space-24);
+  margin: 0;
+  padding: var(--vbds-space-12) var(--vbds-space-20);
+  border-top: 1px solid var(--vbds-divider);
+  background: var(--vbds-surface-2);
+  transition: opacity var(--vbds-duration) var(--vbds-ease);
+}
+.astra-analysis[data-stale] {
+  opacity: 0.55;
+}
+.astra-analysis--empty {
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-text-tertiary);
+}
+.astra-analysis__item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.astra-analysis__item dt {
+  font-size: var(--vbds-caption-size);
+  font-weight: var(--vbds-caption-weight);
+  color: var(--vbds-text-tertiary);
+  white-space: nowrap;
+}
+.astra-analysis__item dd {
+  margin: 0;
+  font-size: var(--vbds-body-size);
+  font-weight: 600;
+  color: var(--vbds-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.astra-analysis__item--wide dd {
+  font-weight: 500;
+  white-space: normal;
+}
+/* A file is being dragged over the editor. */
+.astra-sketcher[data-dropping] {
+  outline: 2px dashed var(--vbds-primary);
+  outline-offset: -6px;
+}
+.astra-sketcher__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--vbds-space-8);
+  padding: var(--vbds-space-12) var(--vbds-space-20);
+  border-top: 1px solid var(--vbds-divider);
+}
+.astra-sketcher__notice {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--vbds-caption-size);
+  color: var(--vbds-danger);
+}
+.astra-sketcher__notice--info {
+  color: var(--vbds-text-secondary);
+}
+.astra-sketcher__notice--confirm {
+  font-size: var(--vbds-body-size);
+  font-weight: 600;
+  color: var(--vbds-text);
+}
+@media (max-width: 640px) {
+  .astra-sketcher {
+    inset: 0;
+    border-radius: 0;
+  }
 }
 
 /* Route editor — scrolls inside the dialog; the dialog itself only caps height. */
@@ -2229,8 +2605,9 @@
     flex-direction: column;
     align-items: stretch;
   }
-  .astra-grid--stats {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  .astra-grid--stats,
+  .astra-grid--stats:has(> :nth-child(6):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .astra-result--list {
     flex-direction: column;

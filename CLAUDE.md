@@ -80,7 +80,67 @@ in-memory default, which is how it went unnoticed.
 Mixed JSX children (`{a} — {b}`) put text separators inside them and cause a hydration mismatch
 that only shows in the browser. Use a template literal.
 
-### 11. `.astra-table` truncates by design
+### 11. The structure editor (Ketcher) loads only through `StructureEditorDialog`
+`src/components/chem/KetcherCanvas.tsx` pulls ~3.3 MB (gzip) of editor and Indigo WASM and touches
+`window` on import. Never import it statically — `StructureEditorDialog` `import()`s it on first open,
+so pages that never open the editor never download it. The `webpack()` block in `next.config.ts`
+aliases paper.js's Node shim (and `jsdom`, `canvas`, `acorn`) to `false` for **every** build: Next
+ignores paper's `browser` field, and even client-only code is compiled for the server pass. Remove it
+and the editor fails to compile. If you switch the dev server to Turbopack, port that alias to
+`turbopack.resolveAlias` first.
+
+Five rules that came out of review — each one fixed a real failure:
+
+- **One editor per page, parked between opens.** Ketcher never removes its document/window
+  listeners; mounting a fresh one per open leaked ~800 listeners each time. `KetcherCanvas` mounts it
+  once into a detached host element and the dialog attaches/parks it. It must be parked at a real size
+  in the document (not `remove()`d, not `display:none`) — a detached tree makes Ketcher's ruler throw
+  "Could not resolve relative length" and unmount itself. The dialog tracks its canvas element as
+  **state**, not a ref: Radix mounts the content a render after `open` flips.
+- **Load as a molfile, not a SMILES string.** `GET /api/structure/molfile` (`molfileFor`) gives
+  Ketcher an RDKit 2D molfile with "either" bonds for unspecified double bonds and the absolute-stereo
+  flag. Ketcher's own SMILES import invents E/Z geometry (456/465 vs 427/473 test structures
+  round-trip identically). An untouched drawing is applied as the original string, never re-derived.
+- **RDKit limits are measured.** `MAX_STRUCTURE_LENGTH` is 400: an unbranched ~650-atom chain
+  overflows the WASM stack (a trap, not an exception). Traps are caught in `withMol` and
+  `runStructureSearch`, the shared module is reloaded, and the caller gets a 422 — never a 500 and
+  never a poisoned server. CoordGen (`set_new_coords(true)`) never returns on a 40-membered ring and
+  blocks the event loop, so `molfileFor` uses RDKit's own depictor when the molecule has a ring of
+  30+ atoms. Re-run the fuzz (`scratchpad`-style: one child process per input) before raising either.
+  `recoverFromTrap` treats a `RangeError` as a trap too: when the JS stack runs out first, V8 unwinds
+  through RDKit's frames and the module is just as poisoned.
+- **Never trust `getSmiles()` to refuse.** Ketcher writes *something* for any drawing: an atom list
+  `[C,N]` comes back as `*`, an "any" bond as a single bond, an R-group as `[*:1]` — no error. The
+  dialog reads the drawing as KET first (`inspectDrawing` in `lib/drawing.ts`): query features go out
+  as SMARTS when `allowQuery`, and are refused by name otherwise. The result then goes through
+  `GET /api/structure/check` (RDKit) before the dialog closes, so a bad drawing fails while it can
+  still be fixed. After touching any of this, run `npm run check:drawing`.
+- **"Changed" is a content comparison, not the undo position.** `setMolecule` records the load as an
+  undo step, so undo-then-draw lands back on the starting `historyPtr` — the old check called that
+  drawing untouched and applied the *original* string. The dialog compares KET fingerprints, and
+  `loadStructure` clears the history *after* loading so Ctrl/⌘ Z can't wipe the opened structure.
+  Only Ketcher's typed API is used (`editor.clear`, `clearHistory`, `getKet`) — no private fields.
+
+- **Opening a file: never trim it, and don't expect an error.** A molfile's first three lines are
+  positional and the first is often blank — `trim()` makes Ketcher reject it. And `setMolecule` on
+  text it can't read neither throws nor calls `errorHandler` (3.18): the canvas is just left as it
+  was. `openFile` therefore compares KET fingerprints before and after. The analysis strip
+  (`GET /api/structure/properties`, `structureProperties`) is advisory — it must never gate or
+  alter what *Use structure* returns.
+
+- **Reactions are drawn, never stored.** A route is still a list of inputs with roles; the scheme
+  on the Synthesis tab (`ReactionScheme`) is drawn from them. *Draw reaction* in the route editor
+  opens the same editor with `onApplyReaction`; `GET /api/structure/reaction` (`parseReaction`)
+  reads the reaction SMILES into inputs and the string is thrown away. The arrow and "+" tools are
+  therefore **not** in `HIDDEN_BUTTONS` — the button set is fixed when the one editor is created —
+  and are hidden by CSS unless the host has `data-reactions`. Everywhere else a reaction is still
+  refused. Reaction SMILES can't say two fragments are one substance, so charged fragments that
+  balance on a side are regrouped (`[Na+].[OH-]` stays one input).
+- **Name lookup is catalogue-only by default.** `GET /api/structure/lookup` matches product name,
+  synonym or CAS exactly. OPSIN (an outside service) is used only when `ASTRA_NAME_LOOKUP=opsin`
+  is set, because it sends the typed name off the server. Don't make that the default.
+
+### 12. `.astra-table` truncates by design
 Its cells use `max-width: 0` + ellipsis so dense grids stay one line. For tables where the
 text *is* the point (chemical names), add `.astra-table--wrap`; don't change the base rule.
 
@@ -153,6 +213,7 @@ npm run dev          # zero-config dev server
 npm run build        # must compile with no errors and no warnings
 npm run typecheck    # must pass with zero errors
 npm run check:structures  # after editing seed chemistry — must pass
+npm run check:drawing     # after editing lib/drawing.ts or the editor dialog — must pass
 ```
 
 Both `typecheck` and `build` are currently clean. Keep them that way.
@@ -173,6 +234,7 @@ Both `typecheck` and `build` are currently clean. Keep them that way.
 | Chart rules | `src/components/charts/chart-theme.ts` |
 | RDKit, depiction, structure search | `src/server/chem/` |
 | Formula parsing / Hill order | `src/lib/formula.ts` |
+| Reading a drawing (KET), SMARTS detection | `src/lib/drawing.ts` |
 | Synthesis graph, where-used, map layout | `src/lib/synthesis.ts` |
 | Route write rules (both adapters) | `src/server/synthesis.ts` |
 | Seed routes | `src/data/routes.ts` |
@@ -193,6 +255,4 @@ Don't "fix" these without asking — they're scoped decisions, and the README st
   wizard/edit/delete UI.
 - **Seeded synthesis routes are `unreviewed`.** They summarise literature processes; a chemist
   marks them reviewed. Don't flip them in the seed.
-- **Structures are entered as SMILES text.** There is no drawing editor (Ketcher was considered
-  and deferred for bundle size).
 - **Import accepts CSV**, not native `.xlsx`. Export produces real `.xlsx` via ExcelJS.

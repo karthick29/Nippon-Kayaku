@@ -1,5 +1,6 @@
 'use client';
 
+import { Formula } from '@/components/chem/Formula';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowLeft,
@@ -602,7 +603,9 @@ export function ProductWizard({
                   '—'
                 )}
               </DescriptionItem>
-              <DescriptionItem term="Molecular formula">{values.molecularFormula || '—'}</DescriptionItem>
+              <DescriptionItem term="Molecular formula">
+                {values.molecularFormula ? <Formula value={values.molecularFormula} /> : '—'}
+              </DescriptionItem>
               <DescriptionItem term="Molecular weight">
                 {values.molecularWeight ? `${values.molecularWeight} g/mol` : '—'}
               </DescriptionItem>

@@ -56,6 +56,10 @@ export function AppShell({
   // ⌘K / Ctrl+K anywhere, and "/" when not already typing.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      // The structure editor is a modal workspace with its own shortcuts (⌘K and "/" included);
+      // typing "/" there must not pop the command palette over an unsaved drawing.
+      if ((event.target as HTMLElement | null)?.closest?.('.astra-sketcher')) return;
+
       if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setPaletteOpen((v) => !v);

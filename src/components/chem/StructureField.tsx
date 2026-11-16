@@ -1,11 +1,12 @@
 'use client';
 
-import { TriangleAlert, Wand2 } from 'lucide-react';
+import { PenTool, TriangleAlert, Wand2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Button, TextField } from '@/components/vbds';
 import { formatHill, parseFormula } from '@/lib/formula';
 import type { ProductBasicsValues } from '@/lib/validation';
+import { StructureEditorDialog } from './StructureEditorDialog';
 import { StructureSvg } from './StructureSvg';
 
 export interface StructurePreview {
@@ -89,6 +90,7 @@ export function StructureField({
   const ownPreview = useStructurePreview(sharedPreview ? undefined : smiles);
   const preview = sharedPreview ?? ownPreview;
   const serverError = form.formState.errors.smiles?.message;
+  const [drawing, setDrawing] = useState(false);
 
   const valid = preview.status === 'valid';
   const entered = normalise(enteredFormula);
@@ -106,7 +108,7 @@ export function StructureField({
     serverError ??
     (preview.status === 'invalid'
       ? preview.message
-      : 'Optional. Paste from PubChem, or ChemDraw › Copy As › SMILES. For a solution, enter the active substance.');
+      : 'Optional. Draw it, or paste SMILES from PubChem or ChemDraw (Copy As › SMILES). For a solution, enter the active substance.');
 
   return (
     <div className="astra-structure-field">
@@ -120,6 +122,19 @@ export function StructureField({
           error={invalid}
           supportingText={helper}
           {...form.register('smiles')}
+        />
+
+        <div className="astra-structure-field__actions">
+          <Button size="sm" variant="outlined" icon={<PenTool size={14} />} onClick={() => setDrawing(true)}>
+            {smiles ? 'Edit drawing' : 'Draw structure'}
+          </Button>
+        </div>
+        <StructureEditorDialog
+          open={drawing}
+          onOpenChange={setDrawing}
+          initialSmiles={smiles}
+          title={smiles ? 'Edit the structure' : 'Draw the structure'}
+          onApply={(structure) => form.setValue('smiles', structure, { shouldDirty: true, shouldValidate: true })}
         />
 
         {valid && (

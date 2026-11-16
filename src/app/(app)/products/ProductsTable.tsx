@@ -1,5 +1,6 @@
 'use client';
 
+import { Formula } from '@/components/chem/Formula';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -143,7 +144,10 @@ export function ProductsTable({
         accessorKey: 'molecularFormula',
         header: 'Formula',
         size: 120,
-        cell: ({ getValue }) => <span className="astra-table__mono">{String(getValue() ?? '—')}</span>,
+        cell: ({ getValue }) => {
+          const formula = getValue() as string | undefined;
+          return formula ? <Formula value={formula} /> : '—';
+        },
       },
       {
         accessorKey: 'status',

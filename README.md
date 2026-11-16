@@ -48,6 +48,7 @@ in `src/server/auth.ts`, not a security control.
 | `npm run start` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` — passes with zero errors |
 | `npm run check:structures` | Verifies every seed structure against its formula, weight and InChIKey, and every route input's SMILES and CAS — run after editing seed chemistry |
+| `npm run check:drawing` | Verifies how a drawing from the structure editor is read: query features, reactions, change detection and SMILES-vs-SMARTS — run after editing `src/lib/drawing.ts` |
 | `npm run lint` | Next.js lint |
 | `npm run db:generate` | Generate the Prisma client |
 | `npm run db:push` | Push `schema.prisma` to PostgreSQL |
@@ -81,7 +82,7 @@ adapter rather than failing to boot.
 | Route | What it is |
 |---|---|
 | `/dashboard` | Executive overview — 6 KPI tiles, 4 charts, latest products, activity feed, floating search |
-| `/search` | eMolecules-style search — hero input, faceted filters, grid/list, match highlighting; **substructure, similarity and exact-structure** modes with matched atoms highlighted |
+| `/search` | eMolecules-style search — hero input, faceted filters, grid/list, match highlighting; **substructure, similarity and exact-structure** modes with matched atoms highlighted, from a typed SMILES or a structure **drawn in the built-in editor** |
 | `/products` | Enterprise data table — sort, resize, column visibility, bulk edit/delete, CSV/Excel export, CSV import |
 | `/products/new` | Three-step wizard — Basic Information → Company Mapping → Review, with autosaving draft and a live structure preview |
 | `/products/[slug]` | Product profile — Overview (with structure) · **Companies** · **Synthesis** · Documents · History · Analytics |
@@ -106,7 +107,7 @@ map of inputs and downstream products, route cards with each input's supply (**S
 
 React 19 · Next.js 15 (App Router) · TypeScript (strict) · Tailwind CSS v4 · Radix UI ·
 TanStack Table · TanStack Query · React Hook Form · Zod · Framer Motion · Recharts ·
-Lucide · Prisma · PostgreSQL · jose · RDKit.js (server-side, WASM)
+Lucide · Prisma · PostgreSQL · jose · RDKit.js (server-side, WASM) · Ketcher (structure editor, loaded on demand)
 
 ---
 
@@ -150,8 +151,6 @@ These are deliberate scoping decisions, not oversights:
   wired up; export produces real `.xlsx` via ExcelJS.
 - **Seeded synthesis routes are unreviewed.** The nine routes summarise established literature
   processes and are marked *Awaiting chemist review* until a chemist confirms them.
-- **Structure queries are typed, not drawn.** Search and the product forms take SMILES (and SMARTS
-  for substructure search); there is no drawing editor.
 - **Structure search compares every structure in memory** — milliseconds for this catalogue. A
   large corpus should move matching into PostgreSQL with the RDKit cartridge; see
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#scaling-structure-search).

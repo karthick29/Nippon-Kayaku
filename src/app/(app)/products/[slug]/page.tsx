@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { PageHeader, Stack } from '@/components/page/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
+import { Formula } from '@/components/chem/Formula';
+import { StructureExport } from '@/components/chem/StructureExport';
 import { StructureImage } from '@/components/chem/StructureImage';
 import { MagnitudeBars } from '@/components/charts/MagnitudeBars';
 import {
@@ -33,6 +35,7 @@ import { statusTone } from '@/lib/status';
 import { auth } from '@/server/auth';
 import { can } from '@/server/rbac';
 import { loadSynthesisMap } from '@/server/synthesis-map';
+import { structureProperties } from '@/server/chem/rdkit';
 import { repo } from '@/server/repo';
 import { ProductActions } from './ProductActions';
 import { ProductCompaniesTable } from './ProductCompaniesTable';
@@ -125,7 +128,7 @@ export default async function ProductDetailPage({
               <Badge tone="primary">{product.applicationName}</Badge>
               <Badge>{product.categoryName}</Badge>
               {product.molecularFormula && (
-                <span className="astra-table__mono">{product.molecularFormula}</span>
+                <Formula value={product.molecularFormula} />
               )}
               <span>
                 <Building2 size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
@@ -177,7 +180,7 @@ export default async function ProductDetailPage({
         )}
         {activeTab === 'synthesis' && synthesisMap && (
           <SynthesisTab
-            product={{ id: product.id, name: product.name }}
+            product={{ id: product.id, name: product.name, smiles: product.smiles }}
             routes={routes}
             whereUsed={whereUsed}
             canEdit={canEditRoutes}
@@ -195,7 +198,7 @@ export default async function ProductDetailPage({
 
 /* ── Overview ───────────────────────────────────────────────────── */
 
-function OverviewTab({
+async function OverviewTab({
   product,
   companies,
 }: {
@@ -205,6 +208,7 @@ function OverviewTab({
   const locations = new Set(companies.map((c) => c.company.locationName));
   const totalStaff = companies.reduce((sum, c) => sum + c.company.chemicalStaff, 0);
   const totalPhd = companies.reduce((sum, c) => sum + c.company.phdCount, 0);
+  const calculated = product.smiles ? await structureProperties(product.smiles) : null;
 
   return (
     <Stack gap={16}>
@@ -215,7 +219,8 @@ function OverviewTab({
         <StatCard label="PhD chemists" value={formatNumber(totalPhd)} icon={<Activity size={16} />} tone="info" caption="combined" />
       </div>
 
-      <div className="astra-grid astra-grid--2">
+      <div className="astra-grid astra-grid--2 astra-grid--start">
+        <Stack gap={16}>
         <Card padding="md">
           <CardHeader title="Product details" subtitle="Identity and classification" />
           <DescriptionList>
@@ -224,7 +229,7 @@ function OverviewTab({
               <span className="astra-table__mono">{product.casNumber}</span>
             </DescriptionItem>
             <DescriptionItem term="Molecular formula">
-              <span className="astra-table__mono">{orDash(product.molecularFormula)}</span>
+              {product.molecularFormula ? <Formula value={product.molecularFormula} /> : '—'}
             </DescriptionItem>
             <DescriptionItem term="Molecular weight">
               {product.molecularWeight ? `${product.molecularWeight} g/mol` : '—'}
@@ -258,6 +263,18 @@ function OverviewTab({
           )}
         </Card>
 
+        <Card padding="md">
+          <CardHeader title="Description" subtitle="What it is and where it is used" />
+          {product.description ? (
+            <p style={{ color: 'var(--vbds-text-secondary)', lineHeight: 'var(--vbds-body-line)' }}>
+              {product.description}
+            </p>
+          ) : (
+            <p style={{ color: 'var(--vbds-text-tertiary)' }}>No description recorded.</p>
+          )}
+        </Card>
+        </Stack>
+
         <Stack gap={16}>
         <Card padding="md">
           <CardHeader
@@ -277,6 +294,7 @@ function OverviewTab({
                   <span className="astra-table__mono astra-break-all">{orDash(product.inchiKey)}</span>
                 </DescriptionItem>
               </DescriptionList>
+              <StructureExport smiles={product.smiles} filename={product.slug} />
             </div>
           ) : (
             <EmptyState
@@ -288,57 +306,78 @@ function OverviewTab({
           )}
         </Card>
 
-        <Card padding="md">
-          <CardHeader title="Description" subtitle="What it is and where it is used" />
-          {product.description ? (
-            <p style={{ color: 'var(--vbds-text-secondary)', lineHeight: 'var(--vbds-body-line)' }}>
-              {product.description}
-            </p>
-          ) : (
-            <p style={{ color: 'var(--vbds-text-tertiary)' }}>No description recorded.</p>
-          )}
+        {calculated && (
+          <Card padding="md">
+            <CardHeader title="Calculated properties" subtitle="Derived from the structure by RDKit — estimates, not measurements" />
+            <DescriptionList>
+              <DescriptionItem term="Exact mass">{calculated.exactMass.toFixed(4)}</DescriptionItem>
+              <DescriptionItem term="cLogP (Crippen)">{calculated.logP.toFixed(2)}</DescriptionItem>
+              <DescriptionItem term="Polar surface area">{calculated.tpsa.toFixed(1)} Å²</DescriptionItem>
+              <DescriptionItem term="H-bond donors / acceptors">
+                {calculated.hBondDonors} / {calculated.hBondAcceptors}
+              </DescriptionItem>
+              <DescriptionItem term="Rotatable bonds">{calculated.rotatableBonds}</DescriptionItem>
+              <DescriptionItem term="Rings (aromatic)">
+                {calculated.rings} ({calculated.aromaticRings})
+              </DescriptionItem>
+              <DescriptionItem term="Heavy atoms">{calculated.heavyAtoms}</DescriptionItem>
+              <DescriptionItem term="Stereocentres">{calculated.stereoCentres}</DescriptionItem>
+            </DescriptionList>
+            {calculated.composition.length > 0 && (
+              <>
+                <div style={{ margin: 'var(--vbds-space-20) 0 var(--vbds-space-12)' }}>
+                  <Divider label="Elemental analysis" />
+                </div>
+                <p className="astra-elemental">
+                  {calculated.composition.map((c) => (
+                    <span key={c.symbol}>
+                      <b>{c.symbol}</b> {c.percent.toFixed(2)}%
+                    </span>
+                  ))}
+                </p>
+              </>
+            )}
+          </Card>
+        )}
 
-          {companies.length > 0 && (
-            <>
-              <div style={{ margin: 'var(--vbds-space-20) 0 var(--vbds-space-12)' }}>
-                <Divider label="Supplying companies" />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {companies.slice(0, 6).map((row) => (
-                  <Link key={row.linkId} href={`/companies/${row.company.slug}`} className="vbds-list-item">
-                    <span className="vbds-list-item__leading-icon" aria-hidden="true">
-                      <Building2 size={14} />
+        {companies.length > 0 && (
+          <Card padding="md">
+            <CardHeader title="Supplying companies" subtitle="Who can make it, and at what stage" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {companies.slice(0, 6).map((row) => (
+                <Link key={row.linkId} href={`/companies/${row.company.slug}`} className="vbds-list-item">
+                  <span className="vbds-list-item__leading-icon" aria-hidden="true">
+                    <Building2 size={14} />
+                  </span>
+                  <span className="vbds-list-item__main">
+                    <span className="vbds-list-item__title">{row.company.name}</span>
+                    <span className="vbds-list-item__subtitle">
+                      {row.company.locationName} · {row.productCodes.join(', ')}
                     </span>
-                    <span className="vbds-list-item__main">
-                      <span className="vbds-list-item__title">{row.company.name}</span>
-                      <span className="vbds-list-item__subtitle">
-                        {row.company.locationName} · {row.productCodes.join(', ')}
-                      </span>
-                    </span>
-                    <span className="vbds-list-item__trailing">
-                      <Badge size="sm" tone={statusTone(row.status)}>
-                        {row.status}
-                      </Badge>
-                    </span>
-                  </Link>
-                ))}
-                {companies.length > 6 && (
-                  <Link
-                    href={`/products/${product.slug}?tab=companies`}
-                    style={{
-                      fontSize: 'var(--vbds-caption-size)',
-                      color: 'var(--vbds-primary)',
-                      padding: '8px 12px',
-                      fontWeight: 600,
-                    }}
-                  >
-                    View all {companies.length} companies →
-                  </Link>
-                )}
-              </div>
-            </>
-          )}
-        </Card>
+                  </span>
+                  <span className="vbds-list-item__trailing">
+                    <Badge size="sm" tone={statusTone(row.status)}>
+                      {row.status}
+                    </Badge>
+                  </span>
+                </Link>
+              ))}
+              {companies.length > 6 && (
+                <Link
+                  href={`/products/${product.slug}?tab=companies`}
+                  style={{
+                    fontSize: 'var(--vbds-caption-size)',
+                    color: 'var(--vbds-primary)',
+                    padding: '8px 12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  View all {companies.length} companies →
+                </Link>
+              )}
+            </div>
+          </Card>
+        )}
         </Stack>
       </div>
     </Stack>
