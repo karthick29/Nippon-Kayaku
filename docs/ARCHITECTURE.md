@@ -235,8 +235,8 @@ which frees in a `finally`; never call `get_mol` bare.
 Structures can be drawn as well as typed. **Ketcher** (EPAM, Apache-2.0) is the editor:
 `StructureEditorDialog` opens it beside the search box, the product forms' SMILES field and each
 external input in the route editor, and returns SMILES (SMARTS for query drawings in substructure
-search). What it returns goes through the same server canonicalisation as typed input, so a
-drawn and a pasted molecule are stored identically.
+search). What it returns has already been read by RDKit (`GET /api/structure/check`) and is
+canonical SMILES, so a drawn and a pasted molecule are stored identically.
 
 - **Loaded on demand.** `import()` on first open; about 3.3 MB gzipped the first time (measured in
   a production build), cached after. Initial page JS is unchanged but for the dialog shell (a few kB).
@@ -246,7 +246,21 @@ drawn and a pasted molecule are stored identically.
 - **Loaded from a molfile.** An existing structure goes through `GET /api/structure/molfile`
   (RDKit 2D coordinates, unspecified double bonds drawn "either", absolute-stereo flag) because Ketcher's
   SMILES import invents E/Z geometry. Applying a drawing you didn't touch returns the original string.
-- **Nothing is discarded silently.** Escape, Cancel and ✕ ask first once the drawing has changed.
+  If that request fails the dialog offers **Try again** — it never falls back to the SMILES import. Text
+  RDKit can't read opens an empty canvas with a note (in substructure search it is handed to Ketcher,
+  which reads SMARTS).
+- **The drawing is inspected, not just exported.** Ketcher's `getSmiles()` never refuses: an atom list
+  becomes `*`, an "any" bond a single bond. `inspectDrawing` (`lib/drawing.ts`) reads the canvas as
+  KET and names every query feature; those go out as SMARTS in substructure search and are refused,
+  by name, where a molecule is stored. The same reading is the "has it changed?" test — a content
+  fingerprint, because Ketcher's undo position returns to its starting value after undo-then-draw.
+- **Checked before it closes.** The exported string goes to `GET /api/structure/check`; an unreadable
+  drawing or an unreachable server leaves the dialog open with the drawing intact.
+- **SMARTS-only syntax is read as SMARTS.** Structure search tries SMILES first, except when a
+  substructure query uses `~`, `[#6]` or bracket logic (`hasSmartsSyntax`): RDKit parses `[#6]~[#6]`
+  as SMILES and then matches nothing. `checkStructure` and `parseQuery` share the rule.
+- **Nothing is discarded silently.** Escape, Cancel and ✕ ask first once the drawing has changed;
+  the opened structure is the floor of the undo history, so Ctrl/⌘ Z can't remove it.
   Escape closes Ketcher's own popup first. Reactions are refused; over-long structures are refused with
   the limit; ⌘K and "/" are ignored while the editor has focus.
 - **`ketcher-standalone/dist/binaryWasmNoRender`.** Indigo runs as a separate `.wasm` in a Web

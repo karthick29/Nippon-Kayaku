@@ -27,7 +27,7 @@ export function SynthesisTab({
   catalogue,
   map,
 }: {
-  product: { id: string; name: string };
+  product: { id: string; name: string; smiles?: string };
   routes: SynthesisRouteView[];
   whereUsed: WhereUsedEntry[];
   canEdit: boolean;
@@ -135,7 +135,7 @@ function RouteCard({
   catalogue,
 }: {
   route: SynthesisRouteView;
-  product: { id: string; name: string };
+  product: { id: string; name: string; smiles?: string };
   canEdit: boolean;
   catalogue: CatalogueOption[];
 }) {
@@ -172,6 +172,8 @@ function RouteCard({
 
       {route.notes && <p className="astra-route-card__notes">{route.notes}</p>}
 
+      <ReactionScheme route={route} product={product} />
+
       <div className="astra-scroll-x">
         <table className="astra-table astra-table--wrap">
           <caption className="astra-sr-only">Inputs to {route.name}</caption>
@@ -193,6 +195,98 @@ function RouteCard({
         </table>
       </div>
     </section>
+  );
+}
+
+/* ── Reaction scheme ────────────────────────────────────────────── */
+
+/**
+ * The route drawn the way a chemist writes it: building blocks joined by "+",
+ * an arrow carrying reagents, catalysts and solvents, then the product.
+ *
+ * Derived from the route's inputs — nothing extra is stored, so the scheme can
+ * never disagree with the table under it. Each structure is its own themed
+ * depiction (not one RDKit reaction image), which keeps catalogue inputs
+ * clickable and lets the scheme wrap on a narrow screen.
+ */
+function ReactionScheme({ route, product }: { route: SynthesisRouteView; product: { name: string; smiles?: string } }) {
+  const nameOf = (input: RouteInputView) => input.product?.name ?? input.externalName ?? 'Unnamed input';
+  const reactants = route.inputs.filter((input) => input.role === 'building-block');
+  const conditions = route.inputs.filter((input) => input.role !== 'building-block');
+  // With no building block recorded there is nothing on the left of the arrow to draw.
+  if (reactants.length === 0) return null;
+
+  const summary = `${reactants.map(nameOf).join(' plus ')}${
+    conditions.length ? `, with ${conditions.map(nameOf).join(', ')},` : ''
+  } gives ${product.name}`;
+
+  return (
+    <div className="astra-scheme" role="group" aria-label={`Reaction scheme: ${summary}`}>
+      {reactants.map((input, index) => (
+        <span className="astra-scheme__group" key={input.id}>
+          {index > 0 && (
+            <span className="astra-scheme__plus" aria-hidden="true">
+              +
+            </span>
+          )}
+          <SchemeSpecies
+            name={nameOf(input)}
+            smiles={input.product?.smiles ?? input.externalSmiles}
+            href={input.product && !input.product.deleted ? `/products/${input.product.slug}` : undefined}
+            note={input.quantity}
+          />
+        </span>
+      ))}
+
+      <span className="astra-scheme__arrow">
+        <span className="astra-scheme__conditions">
+          {conditions.map((input) => (
+            <span key={input.id} className="astra-scheme__condition">
+              {nameOf(input)}
+              {input.role !== 'reagent' && <span className="astra-muted"> ({ROUTE_ROLE_LABELS[input.role].toLowerCase()})</span>}
+            </span>
+          ))}
+        </span>
+        <svg className="astra-scheme__shaft" viewBox="0 0 120 12" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="0" y1="6" x2="112" y2="6" vectorEffect="non-scaling-stroke" />
+        </svg>
+        <svg className="astra-scheme__head" viewBox="0 0 10 12" aria-hidden="true">
+          <path d="M0 1 L9 6 L0 11 Z" />
+        </svg>
+      </span>
+
+      <SchemeSpecies name={product.name} smiles={product.smiles} isProduct />
+    </div>
+  );
+}
+
+function SchemeSpecies({
+  name,
+  smiles,
+  href,
+  note,
+  isProduct = false,
+}: {
+  name: string;
+  smiles?: string;
+  href?: string;
+  note?: string;
+  isProduct?: boolean;
+}) {
+  return (
+    <span className={`astra-scheme__species${isProduct ? ' astra-scheme__species--product' : ''}`}>
+      <StructureImage smiles={smiles} name={name} size="sm" />
+      <span className="astra-scheme__name">
+        {href ? (
+          <Link className="astra-table__link" href={href}>
+            {name}
+          </Link>
+        ) : (
+          name
+        )}
+      </span>
+      {note && <span className="astra-scheme__note">{note}</span>}
+    </span>
   );
 }
 

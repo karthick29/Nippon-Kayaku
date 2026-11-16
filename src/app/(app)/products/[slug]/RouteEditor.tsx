@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, PenTool, Plus, Route as RouteIcon, Trash2, X } from 'lucide-react';
+import { Pencil, PenTool, Plus, Route as RouteIcon, Trash2, Workflow, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import {
   TextArea,
   TextField,
 } from '@/components/vbds';
+import type { ReactionReading } from '@/app/api/structure/reaction/route';
 import { StructureEditorDialog } from '@/components/chem/StructureEditorDialog';
 import { ROUTE_ROLE_LABELS } from '@/lib/synthesis';
 import {
@@ -167,6 +168,7 @@ export function RouteEditorDialog({
   const [saving, setSaving] = useState(false);
   /** Which input row the structure editor is drawing for, if open. */
   const [drawingFor, setDrawingFor] = useState<number | null>(null);
+  const [drawingReaction, setDrawingReaction] = useState(false);
 
   // Reset the form each time the dialog opens, so a cancelled edit doesn't
   // linger. An effect, not onOpenChange: Radix only calls onOpenChange for
@@ -189,6 +191,47 @@ export function RouteEditorDialog({
     setDraft((d) => ({ ...d, inputs: d.inputs.filter((_, i) => i !== index) }));
     setErrors({}); // indices shifted — stale row errors would point at the wrong row
   };
+
+  /**
+   * Fills the inputs from a drawn reaction. Left of the arrow → building blocks, over it →
+   * reagents. A structure that is a catalogue product becomes a catalogue row; anything else
+   * is an external row with its SMILES set and its name left for the user — a drawing has no
+   * names. Rows already in the form are kept; a substance already listed isn't added twice.
+   */
+  function applyReaction(reading: ReactionReading) {
+    const drawn = [
+      ...reading.reactants.map((species) => ({ species, role: 'building-block' as const })),
+      ...reading.agents.map((species) => ({ species, role: 'reagent' as const })),
+    ];
+    // Drop the untouched starter row; keep anything the user has filled in.
+    const kept = draft.inputs.filter((i) => i.productId || i.externalName.trim() || i.externalSmiles.trim());
+    const have = new Set(kept.map((i) => (i.source === 'catalogue' ? `p:${i.productId}` : `s:${i.externalSmiles.trim()}`)));
+    const rows: InputDraft[] = [];
+    for (const { species, role } of drawn) {
+      const id = species.product ? `p:${species.product.id}` : `s:${species.smiles}`;
+      if (have.has(id)) continue;
+      have.add(id);
+      rows.push(
+        species.product
+          ? { ...emptyInput(nextKey()), role, source: 'catalogue', productId: species.product.id }
+          : { ...emptyInput(nextKey()), role, source: 'external', externalSmiles: species.smiles },
+      );
+    }
+    const inputs = [...kept, ...rows].slice(0, 30);
+    const added = inputs.length - kept.length;
+    update({ inputs: inputs.length ? inputs : [emptyInput(nextKey())] });
+    setErrors({});
+
+    const unnamed = rows.filter((row) => row.source === 'external').length;
+    if (reading.productMatches === false) {
+      toast.warning(`The product drawn isn’t ${productName} as recorded — check the right-hand side of the scheme.`);
+    }
+    toast.success(
+      added === 0
+        ? 'Every substance in the drawing is already listed'
+        : `${added} ${added === 1 ? 'input' : 'inputs'} added from the drawing${unnamed ? ' — name the external ones' : ''}`,
+    );
+  }
 
   async function save() {
     const blank = blankRowErrors(draft);
@@ -294,6 +337,9 @@ export function RouteEditorDialog({
 
           <div className="astra-route-editor__inputs-header">
             <h3 className="astra-route-editor__heading">Inputs</h3>
+            <Button variant="outlined" size="sm" icon={<Workflow size={14} />} onClick={() => setDrawingReaction(true)}>
+              Draw reaction
+            </Button>
             {(errors.inputs || errors.form) && (
               <span className="astra-route-editor__error" role="alert">
                 {errors.inputs ?? errors.form}
@@ -446,6 +492,14 @@ export function RouteEditorDialog({
             : 'Draw the substance'
         }
         onApply={(structure) => drawingFor !== null && updateInput(drawingFor, { externalSmiles: structure })}
+      />
+      <StructureEditorDialog
+        open={drawingReaction}
+        onOpenChange={setDrawingReaction}
+        title={`Draw how ${productName} is made`}
+        onApply={() => undefined}
+        onApplyReaction={applyReaction}
+        reactionProductId={productId}
       />
     </Dialog>
   );

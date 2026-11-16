@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ArrowRight, Building2, FlaskConical } from 'lucide-react';
+import { ArrowRight, Building2 } from 'lucide-react';
 import type { ProductRow } from '@/lib/types';
 import { Avatar, Badge, Button } from '@/components/vbds';
 import { statusTone } from '@/lib/status';
 import { cx } from '@/lib/cn';
+import { Formula } from '@/components/chem/Formula';
+import { StructureImage } from '@/components/chem/StructureImage';
 import { Highlight } from './Highlight';
 
 /**
@@ -34,9 +36,10 @@ export function ProductResultCard({
     <article className={cx('astra-result', view === 'list' && 'astra-result--list')}>
       {structure && <div className="astra-result__structure">{structure}</div>}
       <div className="astra-result__top">
-        <span className="astra-result__glyph" aria-hidden="true">
-          <FlaskConical size={17} />
-        </span>
+        {/* Structure search already shows the large, highlighted depiction above. */}
+        {!structure && (
+          <StructureImage smiles={product.smiles} name={product.name} size="xs" className="astra-result__thumb" />
+        )}
 
         <div style={{ minWidth: 0, flex: 1 }}>
           <Link href={`/products/${product.slug}`} className="astra-result__name">
@@ -44,16 +47,20 @@ export function ProductResultCard({
           </Link>
           <div className="astra-result__cas">
             CAS <Highlight text={product.casNumber} query={query} />
-            {product.molecularFormula && <> · {product.molecularFormula}</>}
+            {product.molecularFormula && (
+              <>
+                {' · '}
+                <Formula value={product.molecularFormula} />
+              </>
+            )}
           </div>
         </div>
-
-        <Badge tone={statusTone(product.status)} size="sm" dot>
-          {product.status}
-        </Badge>
       </div>
 
       <div className="astra-result__meta">
+        <Badge tone={statusTone(product.status)} size="sm" dot>
+          {product.status}
+        </Badge>
         {matchLabel && (
           <Badge tone="success" size="sm">
             {matchLabel}

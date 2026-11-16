@@ -73,14 +73,14 @@ async function AnalyticsBody() {
         />
         <StatCard label="Locations" value={metrics.totalLocations} icon={<MapPin size={16} />} tone="info" />
         <StatCard
-          label="Chemical staff"
+          label="Chemists"
           value={formatNumber(totalStaff)}
           icon={<Layers size={16} />}
           tone="success"
           caption="across the panel"
         />
         <StatCard
-          label="PhD chemists"
+          label="PhDs"
           value={formatNumber(totalPhd)}
           icon={<Wrench size={16} />}
           tone="warning"
@@ -96,7 +96,8 @@ async function AnalyticsBody() {
         <TrendChart data={metrics.monthlyAdditions} height={240} />
       </Card>
 
-      <div className="astra-grid astra-grid--2">
+      {/* Rows are grouped by list length so no card is stretched half empty. */}
+      <div className="astra-grid astra-grid--3">
         <ChartCard
           title="Products per company"
           subtitle="Which suppliers carry the most of the catalogue"
@@ -123,32 +124,16 @@ async function AnalyticsBody() {
         >
           <MagnitudeBars data={withHref(metrics.byCity, '/companies?location=')} limit={10} />
         </ChartCard>
+      </div>
 
-        <ChartCard
-          title="Products by status"
-          subtitle="Lifecycle composition of the catalogue"
-          valueLabel="Products"
-          data={metrics.byStatus}
-        >
-          <StatusStack data={metrics.byStatus} />
-        </ChartCard>
-
+      <div className="astra-grid astra-grid--3">
         <ChartCard
           title="Equipment availability"
           subtitle="How many companies have each capability"
           valueLabel="Companies"
           data={coverageBuckets}
         >
-          <MagnitudeBars data={coverageBuckets} limit={15} unit="companies" />
-        </ChartCard>
-
-        <ChartCard
-          title="Products by category"
-          subtitle="Type of chemistry across the catalogue"
-          valueLabel="Products"
-          data={metrics.byCategory}
-        >
-          <MagnitudeBars data={withHref(metrics.byCategory, '/products?category=')} />
+          <MagnitudeBars data={coverageBuckets} limit={10} unit="companies" />
         </ChartCard>
 
         <ChartCard
@@ -167,6 +152,26 @@ async function AnalyticsBody() {
           data={phdByCompany}
         >
           <MagnitudeBars data={phdByCompany} limit={10} unit="PhD" />
+        </ChartCard>
+      </div>
+
+      <div className="astra-grid astra-grid--3">
+        <ChartCard
+          title="Products by status"
+          subtitle="Lifecycle composition of the catalogue"
+          valueLabel="Products"
+          data={metrics.byStatus}
+        >
+          <StatusStack data={metrics.byStatus} />
+        </ChartCard>
+
+        <ChartCard
+          title="Products by category"
+          subtitle="Type of chemistry across the catalogue"
+          valueLabel="Products"
+          data={metrics.byCategory}
+        >
+          <MagnitudeBars data={withHref(metrics.byCategory, '/products?category=')} />
         </ChartCard>
 
         <ChartCard

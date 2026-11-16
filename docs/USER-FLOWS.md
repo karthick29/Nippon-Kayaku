@@ -71,7 +71,9 @@ SMILES string — typed, pasted from PubChem or ChemDraw (Copy As › SMILES), o
 **Draw** button beside the box opens a ChemDraw-style editor (Ketcher) with bonds, rings, element
 and periodic-table tools, and *Use structure* drops the drawing into the search. Reopening it loads
 what is in the box; leaving with *Cancel*, ✕ or Escape asks first if you've changed the drawing, and a
-reaction (arrows, “+”) is refused with an explanation. The mode lives in the URL like everything else,
+reaction (arrows, “+”) is refused with an explanation. In *Substructure* mode a drawing may use query
+features — atom lists, generic atoms, “any” bonds — and comes back as SMARTS; anywhere a molecule is
+stored those are refused, naming the feature. The mode lives in the URL like everything else,
 so a structure search is shareable too.
 
 | Mode | Answers | Result card shows |

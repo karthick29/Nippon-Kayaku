@@ -8,6 +8,7 @@ import type {
   StructureQuery,
   StructureSearchResult,
 } from '@/lib/types';
+import { hasSmartsSyntax } from '@/lib/drawing';
 import { MAX_STRUCTURE_LENGTH } from '@/lib/validation';
 import { throwFieldError } from '@/server/field-error';
 import { loadRDKit, recoverFromTrap } from './rdkit';
@@ -89,9 +90,15 @@ async function searchProducts(query: StructureQuery, listProducts: ListProducts)
  * SMILES first, then SMARTS. Order matters: Kekulé benzene `C1=CC=CC=C1`
  * read as SMARTS demands aliphatic double bonds and matches no aromatic
  * ring; read as SMILES it's aromatised and matches as a chemist expects.
+ *
+ * The exception is a substructure query written in SMARTS-only syntax. RDKit's
+ * SMILES parser accepts some of it and gets the meaning wrong — `[#6]~[#6]`
+ * ("two carbons, any bond") parses as two radical carbons and matches nothing —
+ * so those go straight to SMARTS. Every pattern the structure editor writes for
+ * a query drawing is of that kind. `checkStructure` applies the same order.
  */
 function parseQuery(rdkit: RDKitModule, text: string, mode: StructureQuery['mode']): { mol: Mol; interpretedAs: 'SMILES' | 'SMARTS' } {
-  const asSmiles = rdkit.get_mol(text);
+  const asSmiles = mode === 'substructure' && hasSmartsSyntax(text) ? null : rdkit.get_mol(text);
   if (asSmiles?.is_valid() && asSmiles.get_num_atoms(true) > 0) {
     if (asSmiles.get_num_atoms(true) > MAX_QUERY_ATOMS) {
       asSmiles.delete();

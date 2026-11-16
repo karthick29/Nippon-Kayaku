@@ -48,6 +48,7 @@ in `src/server/auth.ts`, not a security control.
 | `npm run start` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` — passes with zero errors |
 | `npm run check:structures` | Verifies every seed structure against its formula, weight and InChIKey, and every route input's SMILES and CAS — run after editing seed chemistry |
+| `npm run check:drawing` | Verifies how a drawing from the structure editor is read: query features, reactions, change detection and SMILES-vs-SMARTS — run after editing `src/lib/drawing.ts` |
 | `npm run lint` | Next.js lint |
 | `npm run db:generate` | Generate the Prisma client |
 | `npm run db:push` | Push `schema.prisma` to PostgreSQL |

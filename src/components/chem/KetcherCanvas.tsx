@@ -29,34 +29,24 @@ import { createRoot, type Root } from 'react-dom/client';
 
 /**
  * ASTRA stores single molecules as SMILES. Everything that cannot be kept in that
- * form is hidden rather than offered and then refused: reactions and mapping,
- * R-groups, S-groups, shapes and text, image recognition, 3D, and the links that
- * leave the app (help, about). Fullscreen would fight the dialog.
+ * form is hidden rather than offered and then refused: atom mapping, R-groups,
+ * S-groups, shapes and text, image recognition, 3D, and the links that leave the
+ * app (help, about). Fullscreen would fight the dialog.
+ *
+ * The reaction arrow and "+" tools are NOT in this list. The button set is fixed
+ * when the one editor is created, and one use — drawing a route in the route
+ * editor — needs them. They stay in the toolbar and are hidden with CSS unless the
+ * host carries `data-reactions` (see `attachEditor` and `.astra-sketcher__host`).
+ * A reaction drawn anyway, by hotkey, is still refused where a molecule is wanted.
  */
 const HIDDEN_BUTTONS = [
   'recognize', 'miew', 'settings', 'help', 'about', 'fullscreen', 'sgroup',
-  'reaction-plus', 'arrows',
-  'reaction-arrow-open-angle', 'reaction-arrow-filled-triangle', 'reaction-arrow-filled-bow',
-  'reaction-arrow-dashed-open-angle', 'reaction-arrow-failed', 'reaction-arrow-both-ends-filled-triangle',
-  'reaction-arrow-equilibrium-filled-half-bow', 'reaction-arrow-equilibrium-filled-triangle',
-  'reaction-arrow-equilibrium-open-angle', 'reaction-arrow-unbalanced-equilibrium-filled-half-bow',
-  'reaction-arrow-unbalanced-equilibrium-open-half-angle', 'reaction-arrow-unbalanced-equilibrium-large-filled-half-bow',
-  'reaction-arrow-unbalanced-equilibrium-filled-half-triangle', 'reaction-arrow-elliptical-arc-arrow-filled-bow',
-  'reaction-arrow-elliptical-arc-arrow-filled-triangle', 'reaction-arrow-elliptical-arc-arrow-open-angle',
-  'reaction-arrow-elliptical-arc-arrow-open-half-angle',
   'reaction-mapping-tools', 'reaction-automap', 'reaction-map', 'reaction-unmap',
   'rgroup', 'rgroup-label', 'rgroup-fragment', 'rgroup-attpoints',
   'shape', 'shape-ellipse', 'shape-rectangle', 'shape-line', 'text', 'create-monomer',
 ] as const;
 
 const BUTTONS = Object.fromEntries(HIDDEN_BUTTONS.map((name) => [name, { hidden: true }]));
-
-/** The slice of Ketcher's editor object that ASTRA relies on (not part of its public typings). */
-interface EditorInternals {
-  clear?: () => void;
-  historyStack?: unknown[];
-  historyPtr?: number;
-}
 
 interface Host {
   element: HTMLDivElement;
@@ -69,8 +59,6 @@ let host: Host | null = null;
 let parking: HTMLDivElement | null = null;
 /** Who gets the editor's errors right now — the open dialog, if any. */
 let errorSink: ((message: string) => void) | null = null;
-
-const internals = (ketcher: Ketcher) => (ketcher as unknown as { editor: EditorInternals }).editor;
 
 /**
  * Where the editor waits between opens. It must stay in the document at a real size:
@@ -117,13 +105,21 @@ function createHost(): Host {
   return { element, root, ketcher };
 }
 
-/** Puts the editor inside `container` and resolves with it once it has finished initialising. */
-export function attachEditor(container: HTMLElement, onError: (message: string) => void): Promise<Ketcher> {
+/**
+ * Puts the editor inside `container` and resolves with it once it has finished initialising.
+ * `reactions` shows the arrow and "+" tools for this open — off everywhere a single molecule is wanted.
+ */
+export function attachEditor(
+  container: HTMLElement,
+  onError: (message: string) => void,
+  options: { reactions?: boolean } = {},
+): Promise<Ketcher> {
   errorSink = onError;
   if (!host) {
     host = createHost();
     park(host.element); // renders at a real size first
   }
+  host.element.toggleAttribute('data-reactions', Boolean(options.reactions));
   container.appendChild(host.element);
   // Ketcher sizes itself from window resize events; the container is new to it.
   window.dispatchEvent(new Event('resize'));
@@ -150,16 +146,27 @@ export function discardEditor(): void {
   }
 }
 
-/** Empties the canvas and its undo history, then optionally loads a structure. */
+/**
+ * Replaces whatever is on the canvas with `content` (a molfile, SMILES or SMARTS), or
+ * with nothing, and makes that the floor of the undo history.
+ *
+ * The history is cleared *after* loading: `setMolecule` records the load as an undoable
+ * step, and leaving it there lets Ctrl/⌘ Z wipe the structure that was opened for editing.
+ * Only `clear`, `setMolecule` and `clearHistory` are used — all part of Ketcher's typed API.
+ */
 export async function loadStructure(ketcher: Ketcher, content: string | null): Promise<void> {
-  const editor = internals(ketcher);
-  editor.clear?.();
-  if (editor.historyStack) editor.historyStack.length = 0;
-  if (typeof editor.historyPtr === 'number') editor.historyPtr = 0;
-  if (content) await ketcher.setMolecule(content);
+  ketcher.editor.clear();
+  try {
+    if (content) await ketcher.setMolecule(content);
+  } finally {
+    ketcher.editor.clearHistory();
+  }
 }
 
-/** The undo position — compare two readings to know whether the drawing has changed in between. */
-export function historyPosition(ketcher: Ketcher): number {
-  return internals(ketcher).historyPtr ?? 0;
+/**
+ * The drawing as KET — Ketcher's JSON format, written locally without Indigo.
+ * `inspectDrawing` (lib/drawing) reads it: what the drawing contains, and whether it has changed.
+ */
+export function readDrawing(ketcher: Ketcher): Promise<string> {
+  return ketcher.getKet();
 }

@@ -1,5 +1,6 @@
 import 'server-only';
 import type { MainModule as RDKitModule, Mol } from '@rdkit/rdkit';
+import { hasSmartsSyntax } from '@/lib/drawing';
 import { countMolJson, formatHill } from '@/lib/formula';
 import { MAX_STRUCTURE_LENGTH } from '@/lib/validation';
 
@@ -43,9 +44,15 @@ export function loadRDKit(): Promise<RDKitModule> {
  * A WebAssembly trap (stack overflow, out-of-bounds) leaves the module's heap in an
  * unknown state, and the singleton is shared by every request. Drop it so the next
  * call loads a fresh one, instead of failing every structure request until restart.
+ *
+ * A RangeError counts: when the JavaScript stack runs out before the WASM one, V8
+ * unwinds through RDKit's frames with "Maximum call stack size exceeded" — no
+ * destructors run, the stack pointer is never restored, and every later call on
+ * that module traps (measured with a 20 000-atom chain).
  */
 export function recoverFromTrap(error: unknown): boolean {
-  if (typeof WebAssembly !== 'undefined' && error instanceof WebAssembly.RuntimeError) {
+  const trapped = (typeof WebAssembly !== 'undefined' && error instanceof WebAssembly.RuntimeError) || error instanceof RangeError;
+  if (trapped) {
     globalThis.__astraRDKit = undefined;
     return true;
   }
@@ -100,6 +107,137 @@ export function describeStructure(smiles: string): Promise<StructureInfo | null>
       molecularWeight: Math.round(descriptors.amw * 100) / 100,
     };
   });
+}
+
+/* ── Calculated properties ──────────────────────────────────────── */
+
+export interface StructureProperties {
+  /** Hill formula, all components summed. */
+  formula: string;
+  /** Average molecular weight, g/mol, 2 dp. */
+  molecularWeight: number;
+  /** Monoisotopic mass, 4 dp — what a mass spectrometer reports. */
+  exactMass: number;
+  /** Mass percentage of each element, in Hill order. Empty if an element's weight is unknown. */
+  composition: Array<{ symbol: string; percent: number }>;
+  /** Wildman–Crippen estimate of the octanol/water partition coefficient. An estimate, not a measurement. */
+  logP: number;
+  /** Topological polar surface area, Å². */
+  tpsa: number;
+  hBondDonors: number;
+  hBondAcceptors: number;
+  rotatableBonds: number;
+  rings: number;
+  aromaticRings: number;
+  heavyAtoms: number;
+  stereoCentres: number;
+}
+
+/** Standard atomic weights, read from RDKit once per element rather than typed in by hand. */
+const atomicWeights = new Map<string, number>();
+
+function atomicWeight(rdkit: RDKitModule, symbol: string): number | null {
+  const known = atomicWeights.get(symbol);
+  if (known !== undefined) return known;
+  if (!/^[A-Z][a-z]?$/.test(symbol)) return null;
+  let atom: Mol | null = null;
+  try {
+    atom = rdkit.get_mol(`[${symbol}]`);
+    if (!atom || !atom.is_valid()) return null;
+    const weight = (JSON.parse(atom.get_descriptors()) as { amw: number }).amw;
+    atomicWeights.set(symbol, weight);
+    return weight;
+  } finally {
+    atom?.delete();
+  }
+}
+
+/**
+ * The numbers a chemist reads off a structure — ChemDraw's "Analysis" window plus
+ * the usual drug-likeness descriptors. Everything is calculated from the atoms and
+ * bonds; nothing is looked up, so a novel structure gets the same treatment as a
+ * catalogue one. Null if the SMILES doesn't parse.
+ */
+export function structureProperties(smiles: string): Promise<StructureProperties | null> {
+  return withMol(smiles, (mol, rdkit) => {
+    if (mol.get_num_atoms() === 0) return null;
+    const d = JSON.parse(mol.get_descriptors()) as Record<string, number>;
+    const counts = countMolJson(mol.get_json());
+    const formula = formatHill(counts);
+
+    // Element order as written in the formula; percentages from the same weights RDKit sums for `amw`.
+    const masses: Array<{ symbol: string; mass: number }> = [];
+    for (const [, symbol] of formula.matchAll(/([A-Z][a-z]?)\d*/g)) {
+      const weight = atomicWeight(rdkit, symbol!);
+      if (weight === null) {
+        masses.length = 0;
+        break;
+      }
+      masses.push({ symbol: symbol!, mass: weight * (counts.get(symbol!) ?? 0) });
+    }
+    const total = masses.reduce((sum, m) => sum + m.mass, 0);
+    const round = (value: number, dp: number) => Math.round(value * 10 ** dp) / 10 ** dp;
+
+    return {
+      formula,
+      molecularWeight: round(d.amw!, 2),
+      exactMass: round(d.exactmw!, 4),
+      composition: total > 0 ? masses.map((m) => ({ symbol: m.symbol, percent: round((m.mass / total) * 100, 2) })) : [],
+      logP: round(d.CrippenClogP!, 2),
+      tpsa: round(d.tpsa!, 2),
+      hBondDonors: d.NumHBD!,
+      hBondAcceptors: d.NumHBA!,
+      rotatableBonds: d.NumRotatableBonds!,
+      rings: d.NumRings!,
+      aromaticRings: d.NumAromaticRings!,
+      heavyAtoms: d.NumHeavyAtoms!,
+      stereoCentres: d.NumAtomStereoCenters!,
+    };
+  });
+}
+
+/* ── Checking a drawing ─────────────────────────────────────────── */
+
+export interface CheckedStructure {
+  kind: 'SMILES' | 'SMARTS';
+  /** Canonical SMILES, or the SMARTS pattern as written. */
+  structure: string;
+}
+
+/**
+ * Confirms that RDKit can read what the structure editor wrote, before the editor
+ * closes. Returns canonical SMILES for a molecule; with `allowQuery`, a pattern
+ * that is (or can only be) SMARTS is accepted as written. Null if neither reads.
+ *
+ * The order — SMARTS first when the text uses SMARTS-only syntax, otherwise SMILES
+ * first — is the same one structure search applies (`parseQuery`), so a drawing
+ * is searched for exactly as it was checked.
+ */
+export async function checkStructure(text: string, allowQuery: boolean): Promise<CheckedStructure | null> {
+  const input = text.trim();
+  if (!input || input.length > MAX_STRUCTURE_LENGTH) return null;
+
+  if (!(allowQuery && hasSmartsSyntax(input))) {
+    const canonical = await withMol(input, (mol) => (mol.get_num_atoms() > 0 ? mol.get_smiles() : null));
+    if (canonical) return { kind: 'SMILES', structure: canonical };
+    if (!allowQuery) return null;
+  }
+
+  const rdkit = await loadRDKit();
+  let pattern: Mol | null = null;
+  try {
+    pattern = rdkit.get_qmol(input);
+    return pattern && pattern.is_valid() && pattern.get_num_atoms() > 0 ? { kind: 'SMARTS', structure: input } : null;
+  } catch (error) {
+    recoverFromTrap(error);
+    return null;
+  } finally {
+    try {
+      pattern?.delete();
+    } catch {
+      /* the module was just discarded; there is nothing left to free */
+    }
+  }
 }
 
 /* ── Formula ────────────────────────────────────────────────────── */
